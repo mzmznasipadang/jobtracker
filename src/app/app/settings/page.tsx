@@ -1,3 +1,5 @@
+import { listAccounts } from "@/lib/accounts";
+import { AccountsCard } from "./accounts-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,6 +47,8 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto grid max-w-3xl gap-6">
       <h1 className="text-2xl font-semibold text-primary">Settings</h1>
+      <p className="break-all text-sm text-muted-foreground">Signed in as {account.email}</p>
+      {account.role === "owner" && <AccountsCard accounts={listAccounts()} />}
 
       <SectionForm action={saveProfile} title="Profile" description="Contact details and links used on tailored CVs.">
         <Field label="Name" name="name" defaultValue={s.profile.name} />
