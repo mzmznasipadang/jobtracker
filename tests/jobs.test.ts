@@ -4,7 +4,7 @@ import { AiError, askJson } from "@/lib/ai";
 import { runChecks } from "@/lib/check/run";
 import { Job } from "@/lib/types";
 import {
-  addNote, captureJob, getJob, listJobs, markRepliedElsewhere, retryExtraction, setStatus, startJobWork,
+  addNote, captureJob, getJob, isBusy, listEvents, listJobs, markRepliedElsewhere, retryExtraction, setStatus, startJobWork,
 } from "@/lib/jobs";
 
 vi.mock("@/lib/ai", async (orig) => ({ ...(await orig<typeof import("@/lib/ai")>()), askJson: vi.fn() }));
@@ -141,6 +141,44 @@ describe("setStatus", () => {
     addNote(id, "called them");
     expect(getJob(id)!.firstResponseAt).toBe(first);
     expect(events(id)).toEqual(["status", "status", "note"]);
+  });
+});
+
+describe("listEvents", () => {
+  it("returns events newest first with parsed data", async () => {
+    const id = await seed();
+    addNote(id, "first");
+    getDb().prepare("UPDATE events SET at = '2026-01-01T00:00:00.000Z' WHERE job_id = ?").run(id);
+    setStatus(id, "applied", "user", new Date("2026-02-01T00:00:00Z"));
+    addNote(id, "last");
+    const e = listEvents(id);
+    expect(e.map((x) => x.kind)).toEqual(["note", "status", "note"]);
+    expect(e[0].data).toEqual({ text: "last" });
+    expect(e[1].data).toEqual({ from: "saved", to: "applied", by: "user" });
+  });
+});
+
+describe("retryExtraction with edited text", () => {
+  it("stores the new text and extracts from it", async () => {
+    const id = await seed();
+    await retryExtraction(id, "edited text");
+    expect(getJob(id)!.rawText).toBe("edited text");
+    expect(ask).toHaveBeenLastCalledWith(expect.objectContaining({ content: expect.stringContaining("edited text") }));
+  });
+  it("does not touch the text while the job is busy", async () => {
+    const id = await seed();
+    getDb().prepare("UPDATE jobs SET busy='checking', busy_since=? WHERE id=?").run(new Date().toISOString(), id);
+    expect(() => retryExtraction(id, "x")).toThrow(/busy/);
+    expect(getJob(id)!.rawText).toBe(TEXT);
+  });
+});
+
+describe("isBusy", () => {
+  it("ignores a stale marker", () => {
+    const at = (ms: number) => new Date(Date.now() - ms).toISOString();
+    expect(isBusy({ busy: "checking", busySince: at(60_000) })).toBe(true);
+    expect(isBusy({ busy: "checking", busySince: at(16 * 60_000) })).toBe(false);
+    expect(isBusy({ busy: null, busySince: null })).toBe(false);
   });
 });
 

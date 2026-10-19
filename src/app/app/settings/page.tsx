@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { bookmarkletHref } from "@/lib/bookmarklet";
 import { requireSession } from "@/lib/auth";
 import { getCvParseState, getMasterCv } from "@/lib/cv/parse";
 import { getSettings } from "@/lib/settings";
@@ -11,6 +12,7 @@ import { saveGeneral, savePipeline, savePreferences, saveProfile, saveSalary } f
 import { MasterCvCard } from "./master-cv-card";
 import { SectionForm } from "./section-form";
 
+const escapeAttr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 const lines = (xs: string[]) => xs.join("\n");
 
 function Field({ label, name, wide, ...props }: { label: string; name: string; wide?: boolean } & React.ComponentProps<typeof Input>) {
@@ -122,7 +124,21 @@ export default async function SettingsPage() {
         </CardContent>
       </Card>
       <Placeholder title="Gmail" />
-      <Placeholder title="Bookmarklet" />
+      <Card>
+        <CardHeader>
+          <CardTitle>Bookmarklet</CardTitle>
+          <CardDescription>Capture a job from your own browser, including sites that block servers.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-3 text-sm">
+          {/* Raw HTML: React blocks javascript: hrefs, which would break dragging this to the bookmarks bar. */}
+          <p dangerouslySetInnerHTML={{ __html: `<a href="${escapeAttr(bookmarkletHref(process.env.APP_URL ?? "http://localhost:3000"))}" class="inline-block rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground" draggable="true">Send to JobTracker</a>` }} />
+          <ol className="list-decimal space-y-1 pl-5">
+            <li>Drag the button above to your bookmarks bar.</li>
+            <li>Open a job posting and click the bookmark. A JobTracker tab opens with the link and text filled in; press Capture.</li>
+            <li>If the tab stays empty (some sites block the hand-off), the job is copied to your clipboard after a few seconds: paste it into the box on the capture page.</li>
+          </ol>
+        </CardContent>
+      </Card>
     </div>
   );
 }

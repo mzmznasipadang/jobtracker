@@ -1,0 +1,50 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { STATUSES, statusLabel } from "@/components/job-status-badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { addNoteAction, repliedElsewhereAction, setStatusAction } from "@/app/app/jobs/[id]/actions";
+import type { Status } from "@/lib/types";
+
+export function ApplyBar({ jobId, status, replied }: { jobId: number; status: Status; replied: boolean }) {
+  const [note, setNote] = useState("");
+  const [pending, start] = useTransition();
+  const act = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
+    start(async () => {
+      const r = await fn();
+      if (r.ok) after?.();
+      else toast.error(r.error);
+    });
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>Apply and track</CardTitle></CardHeader>
+      <CardContent className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button disabled={pending || status === "applied"} onClick={() => act(() => setStatusAction(jobId, "applied"))}>Mark as applied</Button>
+          <Select value={status} onValueChange={(s) => act(() => setStatusAction(jobId, s as Status))} disabled={pending}>
+            <SelectTrigger aria-label="Status" className="w-40 capitalize"><SelectValue /></SelectTrigger>
+            <SelectContent>{STATUSES.map((s) => <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button variant="outline" disabled={pending || replied} onClick={() => act(() => repliedElsewhereAction(jobId))}>
+            {replied ? "Replied elsewhere (noted)" : "Replied elsewhere"}
+          </Button>
+        </div>
+        <form
+          className="flex gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (note.trim()) act(() => addNoteAction(jobId, note), () => setNote(""));
+          }}
+        >
+          <Input aria-label="Note" placeholder="Add a note" value={note} onChange={(e) => setNote(e.target.value)} />
+          <Button type="submit" variant="secondary" disabled={pending || !note.trim()}>Add note</Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}

@@ -45,7 +45,18 @@ export function addEvent(jobId: number, kind: EventKind, data: unknown, at = now
   getDb().prepare("INSERT INTO events (job_id, at, kind, data_json) VALUES (?, ?, ?, ?)").run(jobId, at, kind, JSON.stringify(data));
 }
 
+export type JobEvent = { id: number; at: string; kind: EventKind; data: Record<string, unknown> };
+
+export function listEvents(jobId: number): JobEvent[] {
+  const rows = getDb().prepare("SELECT id, at, kind, data_json FROM events WHERE job_id = ? ORDER BY at DESC, id DESC").all(jobId) as
+    { id: number; at: string; kind: EventKind; data_json: string | null }[];
+  return rows.map((r) => ({ id: r.id, at: r.at, kind: r.kind, data: r.data_json ? JSON.parse(r.data_json) : {} }));
+}
+
 export const addNote = (jobId: number, text: string) => addEvent(jobId, "note", { text });
+
+// A busy marker older than BUSY_STALE_MS is an orphan, not work in progress.
+export const isBusy = (j: Pick<Job, "busy" | "busySince">) => !!j.busy && !!j.busySince && Date.now() - Date.parse(j.busySince) < BUSY_STALE_MS;
 
 // Throws synchronously if the job is already busy. The returned promise never rejects.
 export function startJobWork(jobId: number, kind: Busy, work: () => Promise<void>): Promise<void> {
@@ -84,9 +95,13 @@ async function extractWork(id: number): Promise<void> {
   await runChecks(id);
 }
 
-export function retryExtraction(id: number): Promise<void> {
-  if (getJob(id)?.rawText == null) throw new Error(`Job ${id} has no stored text to extract`);
-  return startJobWork(id, "extracting", () => extractWork(id));
+// `text` replaces the stored text first (the user edited it); written only after the job is claimed.
+export function retryExtraction(id: number, text?: string): Promise<void> {
+  if (text === undefined && getJob(id)?.rawText == null) throw new Error(`Job ${id} has no stored text to extract`);
+  return startJobWork(id, "extracting", async () => {
+    if (text !== undefined) getDb().prepare("UPDATE jobs SET raw_text = ? WHERE id = ?").run(text, id);
+    await extractWork(id);
+  });
 }
 
 export async function captureJob(input: { url: string; text?: string }): Promise<{ id: number; created: boolean; done: Promise<void> }> {
