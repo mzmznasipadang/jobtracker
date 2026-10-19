@@ -34,3 +34,19 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Dev setup: PDF rendering
+
+Tailored CVs are printed to PDF with Chromium. Install it once locally (the version must match `playwright-core` in `package.json`, which matches the Docker base image `mcr.microsoft.com/playwright:v1.64.1-noble`):
+
+```bash
+npx playwright-core install chromium
+```
+
+## Dev setup: PDF rendering
+
+Tailored CVs are printed to PDF with Chromium. Install it once locally (the version must match `playwright-core` in `package.json`, which matches the Docker base image `mcr.microsoft.com/playwright:v1.64.1-noble`):
+
+```bash
+npx playwright-core install chromium
+```
