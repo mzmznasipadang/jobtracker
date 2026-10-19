@@ -42,11 +42,3 @@ Tailored CVs are printed to PDF with Chromium. Install it once locally (the vers
 ```bash
 npx playwright-core install chromium
 ```
-
-## Dev setup: PDF rendering
-
-Tailored CVs are printed to PDF with Chromium. Install it once locally (the version must match `playwright-core` in `package.json`, which matches the Docker base image `mcr.microsoft.com/playwright:v1.64.1-noble`):
-
-```bash
-npx playwright-core install chromium
-```

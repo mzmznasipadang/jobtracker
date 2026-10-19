@@ -57,4 +57,15 @@ describe("applyGuard", () => {
     expect(r.projects).toHaveLength(1);
     expect(r.projects[0].bullets[0].text).toBe("Shipped v1");
   });
+
+  it("does not take summary numbers from ids, phones or other non-content fields", () => {
+    const plain: MasterCv = {
+      ...cv, basics: { ...cv.basics, phone: "555" },
+      experience: [1, 2, 3].map((i) => ({ id: `e${i}`, company: "C", title: "T", start: "Jan", end: null, location: null, bullets: [{ id: `e${i}-b1`, text: "Did work" }] })),
+      projects: [], education: [], summary: "Engineer.",
+      skills: [1, 2, 3, 4, 5, 6].map((i) => ({ id: `s${i}`, name: `K${i}`, category: "" })),
+    };
+    const r = applyGuard(out({ summary: "5 years of experience" }), plain);
+    expect(r.summary).toBe("Engineer.");
+  });
 });

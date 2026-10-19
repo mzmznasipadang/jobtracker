@@ -22,6 +22,15 @@ const covers = (source: string, text: string) => {
   return numbers(text).every((n) => have.has(n));
 };
 
+// The summary has no cited source, so its numbers must come from CV content (not ids or phone numbers).
+const contentText = (cv: MasterCv) => [
+  cv.summary,
+  ...cv.experience.flatMap((e) => [e.start, e.end ?? "", ...e.bullets.map((b) => b.text)]),
+  ...cv.projects.flatMap((p) => [p.description, ...p.bullets.map((b) => b.text)]),
+  ...cv.education.flatMap((e) => [e.school, e.degree, e.start, e.end]),
+  ...cv.certifications.flatMap((c) => [c.name, c.year]),
+].join(" ");
+
 type Entry = { id: string; bullets: { id: string; text: string }[] };
 
 // Keeps only entries/bullets that trace back to the master CV; Claude never supplies employers, titles, dates or skills.
@@ -50,8 +59,7 @@ export function applyGuard(out: TailorOutput, cv: MasterCv): TailoredCv {
   const skillIds = [...new Set(out.skillIds)];
   return {
     ...cv,
-    // The summary has no cited source, so any number in it must exist somewhere in the master CV.
-    summary: covers(JSON.stringify(cv), out.summary) && out.summary.trim() ? out.summary.trim() : cv.summary,
+    summary: covers(contentText(cv), out.summary) && out.summary.trim() ? out.summary.trim() : cv.summary,
     experience: guardEntries(out.experience, cv.experience),
     projects: guardEntries(out.projects, cv.projects),
     skills: skillIds.flatMap((id) => cv.skills.find((s) => s.id === id) ?? []),
