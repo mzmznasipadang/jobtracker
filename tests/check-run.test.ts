@@ -19,7 +19,7 @@ const match = { score: 85, reasons: ["fit"], gaps: [], missingKeywords: [], deal
 const reply = (m: object, scam: object) => ask.mockImplementation((async (o: { system: string }) => (o.system === MATCH_JOB ? m : scam)) as never);
 
 function seed(over: { rawText?: string; recruiter?: string } = {}) {
-  return Number(getDb().prepare("INSERT INTO jobs (url, source, company, title, raw_text, company_domain, apply_method, recruiter_email, salary_min, salary_max, salary_currency, salary_period) VALUES ('u' || abs(random()),'glints','Acme','Eng',?,'acme.test','email',?,10000000,15000000,'IDR','month')")
+  return Number(getDb().prepare("INSERT INTO jobs (url, source, company, title, raw_text, company_domain, recruiter_email, salary_min, salary_max, salary_currency, salary_period) VALUES ('u' || abs(random()),'glints','Acme','Eng',?,'acme.test',?,10000000,15000000,'IDR','month')")
     .run(over.rawText ?? "normal posting", over.recruiter ?? null).lastInsertRowid);
 }
 
@@ -33,7 +33,7 @@ beforeEach(() => {
 describe("runChecks", () => {
   it("stores the higher of rule and AI scam risk, salary fit, and moves saved to ready", async () => {
     reply(match, { risk: "low", reasons: [] });
-    const id = seed({ rawText: "Hubungi WhatsApp wa.me/628123, biaya training Rp1jt" });
+    const id = seed({ rawText: "Hubungi wa.me/628123, biaya training Rp1jt" });
     await runChecks(id);
     const j = getJob(id)!;
     expect(j).toMatchObject({ scamRisk: "high", salaryFit: "below_minimum", matchScore: 85, status: "ready" });

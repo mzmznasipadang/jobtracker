@@ -3,14 +3,16 @@ import { toMonthlyIdr } from "./salary";
 
 export type Risk = "low" | "medium" | "high";
 const FREE_MAIL = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "ymail.com", "proton.me"];
-const CHAT = /t\.me\/|wa\.me\/|telegram|whatsapp/i;
+const APP = "(?:whatsapp|wa|telegram)";
+const VERB = "(?:hubungi|kontak|contact|chat|kirim|send|apply|lamar|daftar|reach)";
+// A chat link, or a chat app named close to a contact/apply verb; a bare skill mention does not match.
+const CHAT = new RegExp(`\\b(?:wa|t)\\.me/|\\b${VERB}[^]{0,40}\\b${APP}\\b|\\b${APP}\\b[^]{0,40}${VERB}`, "i");
 const FEE = /\b(biaya|deposit|bayar|registration fee|training fee|transfer)\b/i;
 
 // The pay rule needs the user's settings; without them it is skipped.
 export function scamSignals(job: JobFields, rawText: string, salary?: Settings["salary"]): string[] {
   const out: string[] = [];
-  // A site/form apply or an apply email is a company route; chat apps alone are the flag.
-  if (CHAT.test(rawText) && job.applyMethod === "email" && !job.applyEmail) out.push("Contact only through Telegram/WhatsApp, no company email or application site");
+  if (!job.applyEmail && CHAT.test(rawText)) out.push("Directs applicants to Telegram/WhatsApp and gives no company email");
   const fee = FEE.exec(rawText);
   if (fee) out.push(`Mentions a possible fee or payment ("${fee[0]}")`);
   for (const email of [job.recruiterEmail, job.applyEmail]) {

@@ -5,13 +5,13 @@ import type { JobFields, Settings } from "@/lib/types";
 const job: JobFields = {
   company: "Acme", companyDomain: "company.co.id", title: "Engineer", location: null, workMode: null, employmentType: null,
   salaryMin: null, salaryMax: null, salaryCurrency: null, salaryPeriod: null, requirements: [], niceToHave: [],
-  description: "", applyMethod: "email", applyEmail: "jobs@company.co.id", applyUrl: null, recruiterEmail: null, language: "id",
+  description: "", applyMethod: "site", applyEmail: "jobs@company.co.id", applyUrl: null, recruiterEmail: null, language: "id",
 };
 const sal: Settings["salary"] = { expectedMonthlyIdr: 25_000_000, minimumMonthlyIdr: 18_000_000, expectedUsdHourly: 0, fx: { USD: 16000, SGD: 12000, EUR: 17500 }, hoursPerMonth: 173 };
 
 describe("scamSignals", () => {
   it("flags chat-only contact plus a fee", () => {
-    const s = scamSignals({ ...job, applyEmail: null }, "Hubungi via WhatsApp wa.me/62812345 biaya pelatihan Rp500.000");
+    const s = scamSignals({ ...job, applyEmail: null }, "Kirim CV via WhatsApp 0812-3456-7890, biaya pelatihan Rp500.000");
     expect(s.length).toBeGreaterThanOrEqual(2);
     expect(ruleRisk(s)).toBe("high");
   });
@@ -22,9 +22,13 @@ describe("scamSignals", () => {
     expect(ruleRisk(s)).toBe("low");
   });
 
-  it("does not flag chat apps when the posting applies through a site", () => {
-    const s = scamSignals({ ...job, applyMethod: "site", applyEmail: null }, "Experience with WhatsApp Business API is a plus");
-    expect(s).toEqual([]);
+  it("flags a wa.me link without a company email", () => {
+    expect(scamSignals({ ...job, applyEmail: null }, "hubungi wa.me/62812345")).toHaveLength(1);
+  });
+
+  it("does not flag a skill mention or a chat contact next to a company email", () => {
+    expect(scamSignals({ ...job, applyEmail: null }, "WhatsApp Business API experience")).toEqual([]);
+    expect(scamSignals(job, "Telegram: t.me/hrjob")).toEqual([]);
   });
 
   it("flags a free-mail recruiter that is not the company domain", () => {
