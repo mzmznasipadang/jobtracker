@@ -1,21 +1,22 @@
-import { getDb } from "./db";
+import type { Account } from "./accounts";
+import { getAccountDb } from "./db";
 import { Settings } from "./types";
 
 type DeepPartial<T> = T extends object ? (T extends unknown[] ? T : { [K in keyof T]?: DeepPartial<T[K]> }) : T;
 
-export function getKv<T = unknown>(key: string): T | null {
-  const row = getDb().prepare("SELECT value_json FROM kv WHERE key = ?").get(key) as { value_json: string } | undefined;
+export function getKv<T = unknown>(account: Account, key: string): T | null {
+  const row = getAccountDb(account).prepare("SELECT value_json FROM kv WHERE key = ?").get(key) as { value_json: string } | undefined;
   return row ? (JSON.parse(row.value_json) as T) : null;
 }
 
-export function setKv(key: string, value: unknown): void {
-  getDb()
+export function setKv(account: Account, key: string, value: unknown): void {
+  getAccountDb(account)
     .prepare("INSERT INTO kv (key, value_json) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json")
     .run(key, JSON.stringify(value));
 }
 
-export function getSettings(): Settings {
-  return Settings.parse(getKv("settings") ?? {});
+export function getSettings(account: Account): Settings {
+  return Settings.parse(getKv(account, "settings") ?? {});
 }
 
 // Plain objects merge recursively; arrays and scalars replace; undefined is skipped (keeps the saved value).
@@ -27,8 +28,8 @@ function merge(base: unknown, patch: unknown): unknown {
   return out;
 }
 
-export function saveSettings(patch: DeepPartial<Settings>): Settings {
-  const next = Settings.parse(merge(getSettings(), patch));
-  setKv("settings", next);
+export function saveSettings(account: Account, patch: DeepPartial<Settings>): Settings {
+  const next = Settings.parse(merge(getSettings(account), patch));
+  setKv(account, "settings", next);
   return next;
 }

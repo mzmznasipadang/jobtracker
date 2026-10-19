@@ -1,3 +1,4 @@
+import { getOwnerAccount } from "@/lib/accounts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
@@ -11,7 +12,7 @@ const stub = (res: unknown) => {
   const create = vi.fn(async () => res);
   return { client: { beta: { messages: { create } } } as unknown as Anthropic, create };
 };
-const ask = (client: Anthropic) => askJson({ schema, system: "sys", content: "hi" }, client);
+const ask = (client: Anthropic) => askJson(getOwnerAccount(), { schema, system: "sys", content: "hi" }, client);
 const reply = (text: string, stop_reason = "end_turn") => ({ stop_reason, content: [{ type: "text", text }] });
 
 describe("askJson", () => {

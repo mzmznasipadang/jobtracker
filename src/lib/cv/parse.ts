@@ -1,5 +1,6 @@
+import type { Account } from "../accounts";
 import { AiError, askJson } from "../ai";
-import { getDb } from "../db";
+import { getAccountDb } from "../db";
 import { PARSE_CV } from "../prompts";
 import { getKv, setKv } from "../settings";
 import { MasterCv } from "../types";
@@ -18,7 +19,7 @@ function renumber(cv: MasterCv): MasterCv {
   };
 }
 
-export async function parseCv(input: { pdf: Buffer } | { text: string }): Promise<MasterCv> {
+export async function parseCv(account: Account, input: { pdf: Buffer } | { text: string }): Promise<MasterCv> {
   const content =
     "pdf" in input
       ? [
@@ -26,16 +27,16 @@ export async function parseCv(input: { pdf: Buffer } | { text: string }): Promis
           { type: "text" as const, text: "Convert this CV." },
         ]
       : input.text;
-  return renumber(await askJson({ schema: MasterCv, system: PARSE_CV, content, effort: "medium" }));
+  return renumber(await askJson(account, { schema: MasterCv, system: PARSE_CV, content, effort: "medium" }));
 }
 
-export function getMasterCv(): MasterCv | null {
-  const raw = getKv("masterCv");
+export function getMasterCv(account: Account): MasterCv | null {
+  const raw = getKv(account, "masterCv");
   return raw ? MasterCv.parse(raw) : null;
 }
 
-export function saveMasterCv(cv: MasterCv): void {
-  setKv("masterCv", MasterCv.parse(cv));
+export function saveMasterCv(account: Account, cv: MasterCv): void {
+  setKv(account, "masterCv", MasterCv.parse(cv));
 }
 
 // Background parse (Cloudflare cuts requests at ~100 s): the state lives in kv and the settings page polls it.
@@ -48,23 +49,23 @@ const PARSE_KEY = "cvParse";
 const PARSE_STALE_MS = 15 * 60 * 1000;
 
 // A run older than PARSE_STALE_MS is presumed orphaned (e.g. server restart) and reads as absent.
-export function getCvParseState(): CvParseState | null {
-  const s = getKv<CvParseState>(PARSE_KEY);
+export function getCvParseState(account: Account): CvParseState | null {
+  const s = getKv<CvParseState>(account, PARSE_KEY);
   return !s || (s.status === "running" && Date.now() - Date.parse(s.startedAt) > PARSE_STALE_MS) ? null : s;
 }
 
-export const clearCvParseState = () => void getDb().prepare("DELETE FROM kv WHERE key = ?").run(PARSE_KEY);
+export const clearCvParseState = (account: Account) => void getAccountDb(account).prepare("DELETE FROM kv WHERE key = ?").run(PARSE_KEY);
 
 // Throws synchronously if a parse is already running. The returned promise never rejects.
-export function startCvParse(input: { pdf: Buffer } | { text: string }): Promise<void> {
-  if (getCvParseState()?.status === "running") throw new Error("A CV parse is already running");
+export function startCvParse(account: Account, input: { pdf: Buffer } | { text: string }): Promise<void> {
+  if (getCvParseState(account)?.status === "running") throw new Error("A CV parse is already running");
   const startedAt = new Date().toISOString();
-  setKv(PARSE_KEY, { status: "running", startedAt });
+  setKv(account, PARSE_KEY, { status: "running", startedAt });
   // Only the run that still owns the state may write its outcome.
   const finish = (state: CvParseState) => {
-    if (getKv<CvParseState>(PARSE_KEY)?.startedAt === startedAt) setKv(PARSE_KEY, state);
+    if (getKv<CvParseState>(account, PARSE_KEY)?.startedAt === startedAt) setKv(account, PARSE_KEY, state);
   };
-  return parseCv(input).then(
+  return parseCv(account, input).then(
     (result) => finish({ status: "done", result, startedAt }),
     (e) => {
       if (!(e instanceof AiError)) console.error(e);

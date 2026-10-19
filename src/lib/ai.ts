@@ -1,3 +1,4 @@
+import type { Account } from "./accounts";
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
@@ -10,7 +11,7 @@ export class AiError extends Error {
   }
 }
 
-export async function askJson<T>(
+export async function askJson<T>(account: Account, 
   opts: {
     schema: z.ZodType<T>;
     system: string;
@@ -25,7 +26,7 @@ export async function askJson<T>(
     // No thinking/temperature: opus-5-5 rejects them; depth is controlled by effort only.
     // create (not parse) so refusals and truncation are checked before any output parsing.
     res = await client.beta.messages.create({
-      model: getSettings().aiModel,
+      model: getSettings(account).aiModel,
       max_tokens: opts.maxTokens ?? 16000, // >16000 must stream (global constraints)
       betas: ["server-side-fallback-2026-07-01"],
       fallbacks: "default",

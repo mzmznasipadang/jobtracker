@@ -1,3 +1,4 @@
+import type { Account } from "../accounts";
 import { z } from "zod";
 import { askJson } from "../ai";
 import { CLASSIFY_EMAIL } from "../prompts";
@@ -26,11 +27,11 @@ export function keywordClassify(text: string): Exclude<Classification, "other"> 
 
 export const emailText = (e: Pick<RawEmail, "subject" | "snippet" | "body">) => `${e.subject}\n${e.snippet}\n${e.body}`;
 
-export async function classifyEmail(email: RawEmail): Promise<Classification> {
+export async function classifyEmail(account: Account, email: RawEmail): Promise<Classification> {
   const k = keywordClassify(emailText(email));
   if (k && k !== "ambiguous") return k;
   const { subject, from, body } = email;
-  const r = await askJson({
+  const r = await askJson(account, {
     schema: z.object({ classification: Classification }),
     system: CLASSIFY_EMAIL,
     content: JSON.stringify({ from, subject, body: body.slice(0, 6000) }),

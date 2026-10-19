@@ -1,3 +1,4 @@
+import type { Account } from "../accounts";
 import { gmail, type gmail_v1 } from "@googleapis/gmail";
 import { OAuth2Client } from "google-auth-library";
 import { decrypt, encrypt } from "../crypto";
@@ -19,14 +20,14 @@ export const oauthClient = () =>
 export const authUrl = (state: string): string =>
   oauthClient().generateAuthUrl({ access_type: "offline", prompt: "consent", scope: SCOPES, state });
 
-export async function exchangeCode(code: string): Promise<void> {
+export async function exchangeCode(account: Account, code: string): Promise<void> {
   const { tokens } = await oauthClient().getToken(code);
   if (!tokens.refresh_token) {
-    setKv("gmailError", "Google did not return a refresh token — remove the app's access in your Google account and reconnect");
+    setKv(account, "gmailError", "Google did not return a refresh token — remove the app's access in your Google account and reconnect");
     return;
   }
-  setKv("gmailToken", encrypt(tokens.refresh_token));
-  setKv("gmailError", null);
+  setKv(account, "gmailToken", encrypt(tokens.refresh_token));
+  setKv(account, "gmailError", null);
 }
 
 const header = (p: gmail_v1.Schema$MessagePart | undefined, name: string) =>
@@ -59,8 +60,8 @@ const toRaw = (m: gmail_v1.Schema$Message): RawEmail | null => {
 
 // Oldest first, at most `limit` messages, so a capped run can resume from its last message.
 // -from:me keeps the user's own replies out (they would otherwise hit the keyword rules).
-export async function listMessages(sinceEpochSec: number, limit = MAX_PER_RUN): Promise<RawEmail[]> {
-  const token = getKv<string>("gmailToken");
+export async function listMessages(account: Account, sinceEpochSec: number, limit = MAX_PER_RUN): Promise<RawEmail[]> {
+  const token = getKv<string>(account, "gmailToken");
   if (!token) throw new Error("Gmail is not connected");
   const auth = oauthClient();
   auth.setCredentials({ refresh_token: decrypt(token) });

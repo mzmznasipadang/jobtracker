@@ -1,3 +1,4 @@
+import type { Account } from "./accounts";
 import { listJobs } from "./jobs";
 import { getSettings } from "./settings";
 import type { Job, Source } from "./types";
@@ -32,9 +33,9 @@ function summarize(sent: Job[], cutoff: number): Rates & { sent: number } {
   };
 }
 
-export function computeMetrics(now = new Date()): PublicStats {
-  const sent = listJobs().filter((j) => j.appliedAt);
-  const cutoff = now.getTime() - getSettings().pipeline.ghostDays * DAY;
+export function computeMetrics(account: Account, now = new Date()): PublicStats {
+  const sent = listJobs(account).filter((j) => j.appliedAt);
+  const cutoff = now.getTime() - getSettings(account).pipeline.ghostDays * DAY;
 
   const bySource = new Map<Source, Job[]>();
   for (const j of sent) bySource.set(j.source, [...(bySource.get(j.source) ?? []), j]);

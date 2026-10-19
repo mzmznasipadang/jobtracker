@@ -1,3 +1,4 @@
+import { getOwnerAccount } from "@/lib/accounts";
 import { OAuth2Client } from "google-auth-library";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "@/lib/db";
@@ -33,17 +34,17 @@ describe("exchangeCode", () => {
   const tokens = (t: object) => vi.spyOn(OAuth2Client.prototype, "getToken").mockResolvedValue({ tokens: t, res: null } as never);
 
   it("stores the refresh token encrypted and clears the error", async () => {
-    setKv("gmailError", "old");
+    setKv(getOwnerAccount(), "gmailError", "old");
     tokens({ refresh_token: "r-token", access_token: "a" });
-    await exchangeCode("code");
-    expect(decrypt(getKv<string>("gmailToken")!)).toBe("r-token");
-    expect(getKv("gmailError")).toBeNull();
+    await exchangeCode(getOwnerAccount(), "code");
+    expect(decrypt(getKv<string>(getOwnerAccount(), "gmailToken")!)).toBe("r-token");
+    expect(getKv(getOwnerAccount(), "gmailError")).toBeNull();
   });
 
   it("stores nothing and explains when Google returns no refresh token", async () => {
     tokens({ access_token: "a" });
-    await exchangeCode("code");
-    expect(getKv("gmailToken")).toBeNull();
-    expect(getKv("gmailError")).toMatch(/did not return a refresh token/);
+    await exchangeCode(getOwnerAccount(), "code");
+    expect(getKv(getOwnerAccount(), "gmailToken")).toBeNull();
+    expect(getKv(getOwnerAccount(), "gmailError")).toMatch(/did not return a refresh token/);
   });
 });

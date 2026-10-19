@@ -1,3 +1,4 @@
+import { getOwnerAccount } from "@/lib/accounts";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { askJson } from "@/lib/ai";
 import { classifyEmail, keywordClassify } from "@/lib/email/classify";
@@ -24,16 +25,16 @@ describe("classifyEmail", () => {
   beforeEach(() => ask.mockReset());
 
   it("uses the keyword result without calling Claude", async () => {
-    expect(await classifyEmail(mail("Unfortunately, we will not be proceeding"))).toBe("rejection");
+    expect(await classifyEmail(getOwnerAccount(), mail("Unfortunately, we will not be proceeding"))).toBe("rejection");
     expect(ask).not.toHaveBeenCalled();
   });
 
   it("asks Claude (effort low) when ambiguous or no keyword hit", async () => {
     ask.mockResolvedValue({ classification: "rejection" });
-    expect(await classifyEmail(mail("Thank you for interviewing", "Unfortunately we chose someone else"))).toBe("rejection");
+    expect(await classifyEmail(getOwnerAccount(), mail("Thank you for interviewing", "Unfortunately we chose someone else"))).toBe("rejection");
     ask.mockResolvedValue({ classification: "other" });
-    expect(await classifyEmail(mail("Hello there"))).toBe("other");
+    expect(await classifyEmail(getOwnerAccount(), mail("Hello there"))).toBe("other");
     expect(ask).toHaveBeenCalledTimes(2);
-    expect(ask.mock.calls[0][0]).toMatchObject({ effort: "low" });
+    expect(ask.mock.calls[0][1]).toMatchObject({ effort: "low" });
   });
 });
