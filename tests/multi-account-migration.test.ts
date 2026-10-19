@@ -29,6 +29,6 @@ it("reopens a legacy owner database without changing schema or losing encrypted 
   expect(getAccountDb(member).prepare("SELECT * FROM jobs").all()).toEqual([]);
   resetDb();
   const oldApp = openDb(process.env.DB_PATH!);
-  expect(oldApp.pragma("user_version",{simple:true})).toBe(1);
+  expect(oldApp.pragma("user_version",{simple:true})).toBe(2);
   expect(oldApp.prepare("SELECT company FROM jobs").get()).toEqual({company:"Existing"}); oldApp.close();
 });

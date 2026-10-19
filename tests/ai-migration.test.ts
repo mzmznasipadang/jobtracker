@@ -1,0 +1,28 @@
+import {afterEach,beforeEach,expect,it} from 'vitest';
+import {createAccountFixture} from './helpers/accounts';
+import {getRegistry,resetAccounts,claimGoogleAccount,getOwnerAccount} from '@/lib/accounts';
+import {getAccountDb,resetDb} from '@/lib/db';
+import {createSession,lookupSession} from '@/lib/sessions';
+import {encrypt,decrypt} from '@/lib/crypto';
+import {setKv,getKv} from '@/lib/settings';
+import {getAiConfig} from '@/lib/ai-settings';
+let f:ReturnType<typeof createAccountFixture>;
+beforeEach(()=>{f=createAccountFixture();});afterEach(()=>f.cleanup());
+it('upgrades deployed v1 stores without losing sessions, identity, CV, token or PDF',()=>{
+ claimGoogleAccount({email:f.owner.email,sub:'owner-stable',emailVerified:true});
+ const token=createSession(f.owner), encrypted=encrypt('refresh-token');
+ setKv(f.owner,'gmailToken',encrypted);setKv(f.owner,'masterCv',{old:'cv'});
+ const db=getAccountDb(f.owner);
+ db.prepare("INSERT INTO jobs (url,source,company,title) VALUES ('u','other','c','t')").run();
+ db.prepare("INSERT INTO tailored(job_id,version,cv_json,pdf) VALUES (1,1,'{}',?)").run(Buffer.from('%PDF old'));
+ db.exec('DROP TABLE generation_metadata; PRAGMA user_version=1');
+ getRegistry().exec('DROP TABLE ai_config; DROP TABLE cv_skills; PRAGMA user_version=1');
+ resetDb();resetAccounts();
+ expect(lookupSession(token)).toEqual(f.owner);expect(getOwnerAccount()).toEqual(f.owner);
+ expect(getAccountDb(f.owner).pragma('user_version',{simple:true})).toBe(2);
+ expect(getRegistry().pragma('user_version',{simple:true})).toBe(2);
+ expect(decrypt(getKv<string>(f.owner,'gmailToken')!)).toBe('refresh-token');
+ expect(getKv(f.owner,'masterCv')).toEqual({old:'cv'});
+ expect((getAccountDb(f.owner).prepare('SELECT pdf FROM tailored').get() as {pdf:Buffer}).pdf.toString()).toBe('%PDF old');
+ const config=getAiConfig();resetDb();resetAccounts();expect(getAiConfig()).toEqual(config);
+});

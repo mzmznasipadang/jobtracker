@@ -10,12 +10,17 @@ export function openDb(path: string): Database.Database {
   if (path !== ":memory:") db.pragma("journal_mode = WAL");
   db.pragma("foreign_keys = ON");
   db.pragma("busy_timeout = 5000"); // web app and worker share the file
-  if (db.pragma("user_version", { simple: true }) === 0) {
-    db.transaction(() => {
-      db.exec(SCHEMA);
-      db.pragma("user_version = 1");
-    })();
-  }
+  db.transaction(() => {
+    const version = db.pragma("user_version", { simple: true }) as number;
+    if (version > 2) throw new Error("Unsupported account data version");
+    if (version === 0) db.exec(SCHEMA);
+    if (version < 2) {
+      db.exec(`CREATE TABLE generation_metadata (
+        job_id INTEGER NOT NULL, version INTEGER NOT NULL, data_json TEXT NOT NULL,
+        PRIMARY KEY(job_id,version), FOREIGN KEY(job_id,version) REFERENCES tailored(job_id,version) ON DELETE CASCADE
+      ); PRAGMA user_version = 2;`);
+    }
+  }).immediate();
   return db;
 }
 

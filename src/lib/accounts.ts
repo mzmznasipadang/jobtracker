@@ -26,7 +26,7 @@ export function getRegistry(): Database.Database {
     if (path !== ":memory:") { chmodSync(path, 0o600); db.pragma("journal_mode = WAL"); }
     db.transaction(() => {
       const version = db.pragma("user_version", { simple: true }) as number;
-      if (version > 1) throw new Error("Unsupported account registry version");
+      if (version > 2) throw new Error("Unsupported account registry version");
       if (version === 0) {
         db.exec(`
           CREATE TABLE accounts (
@@ -51,10 +51,20 @@ export function getRegistry(): Database.Database {
           PRAGMA user_version = 1;
         `);
       }
+      if (version < 2) {
+        db.exec(`
+          CREATE TABLE cv_skills (id INTEGER PRIMARY KEY AUTOINCREMENT, filename TEXT NOT NULL COLLATE NOCASE UNIQUE, body TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1, updated_at TEXT NOT NULL);
+          CREATE TABLE ai_config (id INTEGER PRIMARY KEY CHECK(id=1), provider TEXT NOT NULL CHECK(provider IN ('anthropic','openai')), model TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 1,
+            primary_skill_id INTEGER NOT NULL REFERENCES cv_skills(id) ON DELETE RESTRICT,
+            additional_skill_id INTEGER REFERENCES cv_skills(id) ON DELETE RESTRICT,
+            CHECK(primary_skill_id != additional_skill_id));
+          PRAGMA user_version = 2;
+        `);
+      }
       const owner = db.prepare("SELECT email FROM accounts WHERE role='owner'").get() as { email: string } | undefined;
       if (owner && owner.email !== email) throw new Error("OWNER_GOOGLE_EMAIL differs from the existing owner");
       if (!owner) db.prepare("INSERT INTO accounts (email,role) VALUES (?, 'owner')").run(email);
-    })();
+    }).immediate();
     registry = db;
     return db;
   } catch (e) { db.close(); throw e; }
