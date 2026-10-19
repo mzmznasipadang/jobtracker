@@ -1,17 +1,20 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { STATUSES, statusLabel } from "@/components/job-status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addNoteAction, clearFollowUpAction, repliedElsewhereAction, setStatusAction } from "@/app/app/jobs/[id]/actions";
+import { addNoteAction, clearFollowUpAction, deleteJobAction, repliedElsewhereAction, setStatusAction } from "@/app/app/jobs/[id]/actions";
 import type { Status } from "@/lib/types";
 
 export function ApplyBar({ jobId, status, replied, followUpDue }: { jobId: number; status: Status; replied: boolean; followUpDue: boolean }) {
   const [note, setNote] = useState("");
+  const router = useRouter();
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [pending, start] = useTransition();
   const act = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
     start(async () => {
@@ -45,6 +48,20 @@ export function ApplyBar({ jobId, status, replied, followUpDue }: { jobId: numbe
           <Input aria-label="Note" placeholder="Add a note" value={note} onChange={(e) => setNote(e.target.value)} />
           <Button type="submit" variant="secondary" disabled={pending || !note.trim()}>Add note</Button>
         </form>
+        <div className="grid gap-3 border-t pt-4">
+          {confirmDelete ? (
+            <div role="alert" className="grid gap-3">
+              <p className="text-sm">Permanently delete this job, its notes, and all generated CVs and letters? This cannot be undone. Your Gmail messages will stay in Gmail.</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="destructive" disabled={pending} onClick={() => act(() => deleteJobAction(jobId), () => {
+                  router.replace("/app/jobs");
+                  router.refresh();
+                })}>Delete permanently</Button>
+                <Button variant="outline" disabled={pending} onClick={() => setConfirmDelete(false)}>Cancel</Button>
+              </div>
+            </div>
+          ) : <Button variant="outline" className="w-fit text-destructive" disabled={pending} onClick={() => setConfirmDelete(true)}>Delete job</Button>}
+        </div>
       </CardContent>
     </Card>
   );

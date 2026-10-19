@@ -60,6 +60,16 @@ export const addNote = (account: Account, jobId: number, text: string) => addEve
 // A busy marker older than BUSY_STALE_MS is an orphan, not work in progress.
 export const isBusy = (j: Pick<Job, "busy" | "busySince">) => !!j.busy && !!j.busySince && Date.now() - Date.parse(j.busySince) < BUSY_STALE_MS;
 
+export function deleteJob(account: Account, id: number): void {
+  getAccountDb(account).transaction(() => {
+    const job = getJob(account, id);
+    if (!job) throw new Error("Job not found");
+    if (isBusy(job)) throw new Error("Wait for processing to finish before deleting this job");
+    // Foreign keys remove versions, provenance and events; retained emails lose their job link.
+    getAccountDb(account).prepare("DELETE FROM jobs WHERE id = ?").run(id);
+  }).immediate();
+}
+
 // Throws synchronously if the job is already busy. The returned promise never rejects.
 export function startJobWork(account: Account, jobId: number, kind: Busy, work: () => Promise<void>): Promise<void> {
   // Single conditional UPDATE so two callers can't both claim the job; a busy job older than

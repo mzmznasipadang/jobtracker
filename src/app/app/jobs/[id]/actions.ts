@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { runChecks } from "@/lib/check/run";
 import { clearFollowUp } from "@/lib/ghost";
-import { addNote, markRepliedElsewhere, retryExtraction, setStatus, startJobWork } from "@/lib/jobs";
+import { addNote, deleteJob, markRepliedElsewhere, retryExtraction, setStatus, startJobWork } from "@/lib/jobs";
 import { tailorJob } from "@/lib/tailor/tailor";
 import { Status } from "@/lib/types";
 
@@ -56,4 +56,16 @@ export async function addNoteAction(id: number, text: string) {
 
 export async function clearFollowUpAction(id: number) {
   return run((account) => clearFollowUp(account, Id.parse(id)));
+}
+
+export async function deleteJobAction(id: number): Promise<Result> {
+  const account = await requireSession();
+  try {
+    deleteJob(account, Id.parse(id));
+  } catch (e) {
+    return { ok: false, error: e instanceof z.ZodError ? "Invalid input" : e instanceof Error ? e.message : "Could not delete job" };
+  }
+  revalidatePath("/app/jobs");
+  revalidatePath("/app");
+  return { ok: true };
 }
