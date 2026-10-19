@@ -8,7 +8,7 @@ let f:ReturnType<typeof createAccountFixture>;
 beforeEach(()=>{f=createAccountFixture();vi.stubEnv('OPENAI_API_KEY','fake');saveAiSelection(f.owner,{provider:'openai',model:'test-openai',revision:getAiConfig().revision});});
 afterEach(()=>{f.cleanup();vi.unstubAllEnvs();});
 const schema=z.object({n:z.number()});
-function client(reply:unknown){const create=vi.fn(async(_req:Record<string,unknown>)=>reply);return {create,openai:{responses:{create}} as unknown as OpenAI};}
+function client(reply:unknown){const create=vi.fn<(request:Record<string,unknown>)=>Promise<unknown>>().mockResolvedValue(reply);return {create,openai:{responses:{create}} as unknown as OpenAI};}
 it('uses global OpenAI selection, structured output, PDF conversion and store:false',async()=>{
  const c=client({status:'completed',output_text:'{"n":1}',output:[]});
  expect(await askJson(f.member,{schema,system:'rules',content:[{type:'document',source:{type:'base64',media_type:'application/pdf',data:'cGRm'}},{type:'text',text:'Read'}]}, {openai:c.openai})).toEqual({n:1});
@@ -27,4 +27,17 @@ it.each([
 });
 it('rejects excessive output before making a request',async()=>{
  const c=client({});await expect(askJson(f.owner,{schema,system:'x',content:'y',maxTokens:16001},{openai:c.openai})).rejects.toThrow();expect(c.create).not.toHaveBeenCalled();
+});
+it('can encode the real CV/job/tailor schemas as strict OpenAI output formats',async()=>{
+ const {MasterCv,JobFields}=await import('@/lib/types');const {TailorOutput}=await import('@/lib/tailor/guard');
+ const c=client({status:'completed',output_text:'{}',output:[]});
+ for(const s of [MasterCv,JobFields,TailorOutput]) {
+  await askJson<unknown>(f.owner,{schema:s,system:'schema check',content:'text'},{openai:c.openai}).catch(()=>{});
+ }
+ expect(c.create).toHaveBeenCalledTimes(3);
+});
+it('never leaks provider secrets or falls back after an API failure',async()=>{
+ const c=client({});c.create.mockRejectedValue(new Error('Authorization: Bearer private-key'));
+ const error=await askJson(f.owner,{schema,system:'x',content:'y'},{openai:c.openai}).catch(e=>e);
+ expect(error).toMatchObject({code:'api'});expect(error.message).not.toContain('private-key');expect(c.create).toHaveBeenCalledTimes(1);
 });

@@ -20,3 +20,8 @@ it('keeps one provider/model across delayed match and scam calls',async()=>{
  finish({score:80,reasons:[],gaps:[],missingKeywords:[],dealBreakerHit:null});await work;
  expect(vi.mocked(askJson).mock.calls.map(c=>c[1].ai)).toEqual([{provider:'anthropic',model:'claude-opus-5-5'},{provider:'anthropic',model:'claude-opus-5-5'}]);
 });
+it('does not leave a sync lease behind when configuration cannot be resolved',async()=>{
+ const ai=await import('@/lib/ai');const {syncInbox}=await import('@/lib/email/sync');const {getKv}=await import('@/lib/settings');
+ const spy=vi.spyOn(ai,'snapshotAi').mockImplementation(()=>{throw new Error('configuration unavailable');});
+ try {expect(()=>syncInbox(f.owner)).toThrow('configuration unavailable');expect(getKv(f.owner,'gmailSyncing')).toBeNull();}finally{spy.mockRestore();}
+});

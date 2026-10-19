@@ -87,6 +87,28 @@ While moving job-site accounts to Gmail, enable automatic forwarding from Outloo
 
 In Settings, drag **Send to JobTracker** to your browser's bookmarks bar. Open a job posting and click the bookmark; it opens the capture form with the URL and page text. Review and press **Capture**. If the site blocks the window handshake, the bookmarklet copies the content instead; paste it into the capture form.
 
+## Shared AI provider and Markdown CV skills
+
+The owner manages **Settings → AI provider and model** for everyone. Choose Anthropic Claude or OpenAI and enter a model ID available to that API account. The selected model must support structured output and PDF input for CV uploads; unsupported models fail clearly without silently changing providers. Configure keys on naspad-server first:
+
+```bash
+ssh root@naspad-server
+cd /srv/jobtracker
+nano .env
+# Set ANTHROPIC_API_KEY and/or OPENAI_API_KEY; keep APP_SECRET unchanged.
+docker compose up -d --force-recreate
+```
+
+Keys stay in the server environment; the UI displays configured/missing status only. New installations and upgrades keep Anthropic and the owner's existing model until the owner changes them. Members cannot override the shared provider/model. Existing requests keep the configuration they started with. All approved users share the selected provider's usage costs. OpenAI requests use `store:false`.
+
+Under **CV instruction skills**, the owner can create, read/edit, import, download and delete Markdown writing instructions. Filenames must be simple `.md` basenames (maximum 100 characters), bodies valid nonempty UTF-8 (maximum 64 KiB). A default `resume-tailor.md` retains the existing writing guidance. Select one primary skill and optionally one distinct additional skill, then save the pair. Selected skills cannot be deleted until replaced or cleared. Revision checks reject conflicting edits; saving errors keep the editor text so you can reconcile it with the latest saved revision.
+
+Skills guide tailored CVs, cover letters and form answers. They do not change parsing, matching, scam checks, Gmail classification, application schemas or factual guards; they do not run code or replace the PDF layout. Everyone uses the same selected pair. Professional skills listed in each person's Master CV remain separate and private.
+
+Each new tailored version records provider/model and both skill revisions/instruction snapshots in that account's database. The UI shows a summary; older versions show generation details as unavailable. Changing a skill does not alter old results or an in-flight generation. No real AI calls are made by automated tests.
+
+This release advances registry and account database versions. **Rollback must restore the complete matching data/.env backup together with the previous images and code.** Stop writers and preserve the newer data directory first; do not silently discard post-cutover writes or start the prior registry implementation against the upgraded database.
+
 ## Accounts and access
 
 The owner signs in with the configured Google email and opens **Settings → Account access** to approve another person's Google email. They visit `/login` and select **Sign in with Google**. They never need to create a Google Cloud project or supply OAuth credentials. Gmail connection is optional and uses the same shared OAuth app, with a separate consent/token for each person. The connected mailbox is displayed in Settings and can differ from the sign-in account.
@@ -102,11 +124,11 @@ All approved accounts share the server's Claude API key and its usage costs. Pha
 3. Stop web and worker, then make a root-only backup of the **whole** data directory and `.env` as described below.
 4. Set `OWNER_GOOGLE_EMAIL=owner@example.com`. Preserve `DB_PATH`, `APP_SECRET` and all existing API/OAuth credentials. Do not change the owner email after the registry is created.
 5. Recreate the containers. The existing database remains the owner's file; registry initialization does not move or clear its data. Sign in as the owner and verify existing jobs, CV, settings and Gmail status before approving anyone else.
-6. If Google login fails, stop the new containers, restore the previous image/config and restart. Preserve the new registry/member files for recovery. Do not leave the owner locked out while debugging.
+6. If upgrade verification fails, stop both services, preserve the new data directory separately, restore the complete pre-upgrade data/.env backup and previous image/code, then restart. Preserve the new registry/member files for recovery. Do not leave the owner locked out while debugging.
 
 ## Backups
 
-`data/jobtracker.db` holds existing owner data; `data/accounts.db` holds account approvals, identities and sessions; `data/users/<id>.db` holds each member's data. SQLite uses WAL. Back up **all files** consistently, together with `.env` (which contains the key needed to decrypt Gmail tokens).
+`data/jobtracker.db` holds existing owner data; `data/accounts.db` holds account approvals, identities, sessions, shared AI configuration and Markdown skills; `data/users/<id>.db` holds each member's data. SQLite uses WAL. Back up **all files** consistently, together with `.env` (which contains the key needed to decrypt Gmail tokens).
 
 On naspad-server as root:
 

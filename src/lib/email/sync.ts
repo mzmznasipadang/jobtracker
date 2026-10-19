@@ -116,6 +116,7 @@ export function syncInbox(account: Account, now = new Date()): ReturnType<typeof
   const existing = inflight.get(account.id);
   if (existing) return existing;
   const db = getAccountDb(account);
+  const ai = snapshotAi();
   const lease = randomUUID();
   const marker = JSON.stringify({ startedAt: new Date().toISOString(), lease });
   // SQLite arbitrates between the web process and worker, not just callers in this process.
@@ -124,7 +125,7 @@ export function syncInbox(account: Account, now = new Date()): ReturnType<typeof
     WHERE COALESCE(json_extract(kv.value_json,'$.startedAt'),'') < ?`)
     .run(marker, new Date(Date.now() - SYNC_STALE_MS).toISOString());
   if (!claimed.changes) return Promise.resolve({ stored: 0, skipped: 0 });
-  const promise = run(account, now, snapshotAi()).finally(() => {
+  const promise = run(account, now, ai).finally(() => {
     inflight.delete(account.id);
     db.prepare("UPDATE kv SET value_json='null' WHERE key='gmailSyncing' AND json_extract(value_json,'$.lease')=?").run(lease);
   });
