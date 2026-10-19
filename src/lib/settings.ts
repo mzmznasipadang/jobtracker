@@ -16,7 +16,9 @@ export function setKv(account: Account, key: string, value: unknown): void {
 }
 
 export function getSettings(account: Account): Settings {
-  return Settings.parse(getKv(account, "settings") ?? {});
+  const settings = Settings.parse(getKv(account, "settings") ?? {});
+  if (getActiveAccount(account.id)?.role !== "owner") settings.publicPageEnabled = false;
+  return settings;
 }
 
 // Plain objects merge recursively; arrays and scalars replace; undefined is skipped (keeps the saved value).

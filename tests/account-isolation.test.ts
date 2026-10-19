@@ -67,3 +67,6 @@ it("does not share in-flight Gmail sync between accounts or steal a DB lease", a
   expect(listMessages).not.toHaveBeenCalled();
   expect(getKv(owner, "gmailSyncing")).toMatchObject({ lease: "other-process" });
 });
+it("new member settings are private before the first save", () => {
+  expect(getSettings(fixture.member).publicPageEnabled).toBe(false);
+});
