@@ -12,6 +12,7 @@ test("password round-trip", () => {
   expect(verifyPassword("x", "garbage")).toBe(false);
   expect(verifyPassword("hunter2", h.replaceAll(":", "$"))).toBe(false); // old $ form fails closed
   expect(verifyPassword("hunter2", "scrypt:zz:zz")).toBe(false);
+  expect(verifyPassword("hunter2", h + ":junk")).toBe(false);
 });
 
 test("session validity", () => {

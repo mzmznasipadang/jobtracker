@@ -15,8 +15,9 @@ export function hashPassword(pw: string): string {
 }
 
 export function verifyPassword(pw: string, stored: string): boolean {
-  const [scheme, salt, hash] = stored.split(":");
-  if (scheme !== "scrypt" || !salt || !hash) return false;
+  const parts = stored.split(":");
+  const [scheme, salt, hash] = parts;
+  if (parts.length !== 3 || scheme !== "scrypt" || !salt || !hash) return false;
   return safeEqual(scryptSync(pw, Buffer.from(salt, "hex"), 64), Buffer.from(hash, "hex"));
 }
 
