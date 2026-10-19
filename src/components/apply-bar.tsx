@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { addNoteAction, repliedElsewhereAction, setStatusAction } from "@/app/app/jobs/[id]/actions";
+import { addNoteAction, clearFollowUpAction, repliedElsewhereAction, setStatusAction } from "@/app/app/jobs/[id]/actions";
 import type { Status } from "@/lib/types";
 
-export function ApplyBar({ jobId, status, replied }: { jobId: number; status: Status; replied: boolean }) {
+export function ApplyBar({ jobId, status, replied, followUpDue }: { jobId: number; status: Status; replied: boolean; followUpDue: boolean }) {
   const [note, setNote] = useState("");
   const [pending, start] = useTransition();
   const act = (fn: () => Promise<{ ok: true } | { ok: false; error: string }>, after?: () => void) =>
@@ -33,6 +33,7 @@ export function ApplyBar({ jobId, status, replied }: { jobId: number; status: St
           <Button variant="outline" disabled={pending || replied} onClick={() => act(() => repliedElsewhereAction(jobId))}>
             {replied ? "Replied elsewhere (noted)" : "Replied elsewhere"}
           </Button>
+          {followUpDue && <Button variant="outline" disabled={pending} onClick={() => act(() => clearFollowUpAction(jobId))}>Followed up</Button>}
         </div>
         <form
           className="flex gap-2"

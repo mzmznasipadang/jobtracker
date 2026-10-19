@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { runChecks } from "@/lib/check/run";
+import { clearFollowUp } from "@/lib/ghost";
 import { addNote, markRepliedElsewhere, retryExtraction, setStatus, startJobWork } from "@/lib/jobs";
 import { tailorJob } from "@/lib/tailor/tailor";
 import { Status } from "@/lib/types";
@@ -50,4 +51,8 @@ export async function repliedElsewhereAction(id: number) {
 
 export async function addNoteAction(id: number, text: string) {
   return run(() => addNote(Id.parse(id), z.string().trim().min(1).max(5000).parse(text)));
+}
+
+export async function clearFollowUpAction(id: number) {
+  return run(() => clearFollowUp(Id.parse(id)));
 }

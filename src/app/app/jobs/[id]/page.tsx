@@ -47,7 +47,7 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
       <JobAlerts job={job} busy={busy} rawText={rawText} />
       <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
       <TailorPanel jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(job.id)} disabled={busy || !extracted || !!job.extractError} />
-      <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} />
+      <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />
       <Card>
         <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
         <CardContent><Timeline events={listEvents(job.id)} /></CardContent>
