@@ -18,6 +18,13 @@ describe("settings", () => {
     expect(getSettings().pipeline.ghostDays).toBe(21);
   });
 
+  it("ignores undefined patch values instead of resetting saved ones", () => {
+    saveSettings({ pipeline: { ghostDays: 21 } });
+    const s = saveSettings({ pipeline: { ghostDays: undefined, followUpDays: 3 } });
+    expect(s.pipeline.ghostDays).toBe(21);
+    expect(s.pipeline.followUpDays).toBe(3);
+  });
+
   it("rejects invalid values and does not persist them", () => {
     expect(() => saveSettings({ pipeline: { ghostDays: -1 } })).toThrow();
     expect(getSettings().pipeline.ghostDays).toBe(14);

@@ -18,12 +18,12 @@ export function getSettings(): Settings {
   return Settings.parse(getKv("settings") ?? {});
 }
 
-// Plain objects merge recursively; arrays and scalars replace.
+// Plain objects merge recursively; arrays and scalars replace; undefined is skipped (keeps the saved value).
 function merge(base: unknown, patch: unknown): unknown {
   const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
   if (!isObj(base) || !isObj(patch)) return patch;
   const out = { ...base };
-  for (const [k, v] of Object.entries(patch)) out[k] = merge(base[k], v);
+  for (const [k, v] of Object.entries(patch)) if (v !== undefined) out[k] = merge(base[k], v);
   return out;
 }
 
