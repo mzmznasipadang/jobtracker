@@ -118,7 +118,7 @@ export default async function SettingsPage() {
           Claude API key: <span className={keyConfigured ? "font-semibold text-success" : "font-semibold text-danger"}>{keyConfigured ? "configured" : "missing"}</span>
         </CardContent>
       </Card>
-      <GmailCard hasToken={getKv(account, "gmailToken") !== null} error={getKv<string>(account, "gmailError")} lastSync={getKv<string>(account, "gmailLastSync")} syncing={isSyncing(account)} />
+      <GmailCard address={getKv<string>(account, "gmailAddress")} hasToken={getKv(account, "gmailToken") !== null} error={getKv<string>(account, "gmailError")} lastSync={getKv<string>(account, "gmailLastSync")} syncing={isSyncing(account)} />
       <Card>
         <CardHeader>
           <CardTitle>Bookmarklet</CardTitle>

@@ -1,6 +1,7 @@
 import type { Account } from "../accounts";
 import { gmail, type gmail_v1 } from "@googleapis/gmail";
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client, type CodeChallengeMethod } from "google-auth-library";
+import { getAccountDb } from "../db";
 import { decrypt, encrypt } from "../crypto";
 import { getKv, setKv } from "../settings";
 
@@ -17,17 +18,37 @@ export const appUrl = () => process.env.APP_URL || "http://localhost:3000";
 export const oauthClient = () =>
   new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, `${appUrl()}/api/gmail/callback`);
 
-export const authUrl = (state: string): string =>
-  oauthClient().generateAuthUrl({ access_type: "offline", prompt: "consent", scope: SCOPES, state });
+export const authUrl = (state: string, codeChallenge: string): string =>
+  oauthClient().generateAuthUrl({ access_type: "offline", prompt: "consent", scope: SCOPES, state, code_challenge: codeChallenge, code_challenge_method: "S256" as CodeChallengeMethod });
 
-export async function exchangeCode(account: Account, code: string): Promise<void> {
-  const { tokens } = await oauthClient().getToken(code);
+export async function exchangeCode(account: Account, code: string, verifier: string): Promise<void> {
+  const auth = oauthClient();
+  const { tokens } = await auth.getToken({ code, codeVerifier: verifier });
   if (!tokens.refresh_token) {
     setKv(account, "gmailError", "Google did not return a refresh token — remove the app's access in your Google account and reconnect");
     return;
   }
-  setKv(account, "gmailToken", encrypt(tokens.refresh_token));
-  setKv(account, "gmailError", null);
+  if (!SCOPES.every(scope => tokens.scope?.split(" ").includes(scope))) throw new Error("Required Gmail permissions were not granted");
+  auth.setCredentials(tokens);
+  const { data } = await gmail({ version: "v1", auth }).users.getProfile({ userId: "me" });
+  if (!data.emailAddress) throw new Error("Google did not return a Gmail address");
+  getAccountDb(account).transaction(() => {
+    // A different mailbox must not reuse the previous mailbox's cursor or in-flight results.
+    setKv(account, "gmailLastSync", null);
+    setKv(account, "gmailToken", encrypt(tokens.refresh_token!));
+    setKv(account, "gmailAddress", data.emailAddress);
+    setKv(account, "gmailError", null);
+  })();
+}
+
+export async function disconnectGmail(account: Account): Promise<void> {
+  const token = getKv<string>(account, "gmailToken");
+  getAccountDb(account).transaction(() => {
+    for (const key of ["gmailToken", "gmailAddress", "gmailLastSync", "gmailError"]) setKv(account, key, null);
+  })();
+  if (token) {
+    try { await oauthClient().revokeToken(decrypt(token)); } catch { /* Local disconnect must work offline too. */ }
+  }
 }
 
 const header = (p: gmail_v1.Schema$MessagePart | undefined, name: string) =>
@@ -66,6 +87,10 @@ export async function listMessages(account: Account, sinceEpochSec: number, limi
   const auth = oauthClient();
   auth.setCredentials({ refresh_token: decrypt(token) });
   const { messages } = gmail({ version: "v1", auth }).users;
+  if (!getKv(account, "gmailAddress")) {
+    const { data } = await gmail({ version: "v1", auth }).users.getProfile({ userId: "me" });
+    if (data.emailAddress && getKv(account, "gmailToken") === token) setKv(account, "gmailAddress", data.emailAddress);
+  }
 
   const ids: string[] = [];
   let pageToken: string | undefined;

@@ -6,6 +6,7 @@ import { ZodError } from "zod";
 import { AiError } from "@/lib/ai";
 import { requireSession } from "@/lib/auth";
 import { clearCvParseState, saveMasterCv, startCvParse } from "@/lib/cv/parse";
+import { disconnectGmail } from "@/lib/email/gmail";
 import { syncInbox } from "@/lib/email/sync";
 import { saveSettings } from "@/lib/settings";
 import { MasterCv } from "@/lib/types";
@@ -126,4 +127,8 @@ export async function syncGmail() {
       .catch((e) => console.error("Gmail sync failed:", e instanceof Error ? e.message : e));
     return {};
   });
+}
+
+export async function disconnectGmailAction() {
+  return guarded(async (account) => { await disconnectGmail(account); return {}; });
 }

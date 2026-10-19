@@ -46,23 +46,25 @@ const isAuthError = (e: unknown) => {
 
 async function run(account: Account, now: Date): Promise<{ stored: number; skipped: number }> {
   const result = { stored: 0, skipped: 0 };
-  if (!getKv(account, "gmailToken")) return result;
+  const connection = getKv(account, "gmailToken");
+  if (!connection) return result;
   const since = getKv<string>(account, "gmailLastSync") ?? new Date(now.getTime() - BACKFILL_MS).toISOString();
   let messages;
   try {
     messages = await listMessages(account, Math.floor(Date.parse(since) / 1000));
   } catch (e) {
     if (!isAuthError(e)) throw e;
-    setKv(account, "gmailError", "Gmail access was revoked or expired — reconnect Gmail");
+    if (getKv(account, "gmailToken") === connection) setKv(account, "gmailError", "Gmail access was revoked or expired — reconnect Gmail");
     return result;
   }
 
   const { outlookAddress: outlook, profile } = getSettings(account);
-  const owner = profile.email;
+  const owner = getKv<string>(account, "gmailAddress") ?? profile.email;
   const known = getAccountDb(account).prepare("SELECT 1 FROM emails WHERE id = ?");
   const insert = getAccountDb(account).prepare(`INSERT INTO emails (id, thread_id, from_addr, original_from, subject, snippet, received_at, classification, job_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   for (const email of messages) {
+    if (getKv(account, "gmailToken") !== connection) return result;
     if (known.get(email.id)) continue;
     const jobId = matchJob(email, listJobs(account), outlook, owner);
     // Privacy: unrelated mail is neither stored nor sent to Claude, and Claude only ever sees mail matched to a job.
@@ -85,6 +87,7 @@ async function run(account: Account, now: Date): Promise<{ stored: number; skipp
         return "other" as const;
       });
     }
+    if (getKv(account, "gmailToken") !== connection) return result;
     const stored: StoredEmail = { id: email.id, original_from: originalSender(email, outlook, owner), subject: email.subject, snippet: email.snippet, received_at: email.receivedAt, classification };
     getAccountDb(account).transaction(() => {
       insert.run(email.id, email.threadId, email.from, stored.original_from, email.subject, email.snippet, email.receivedAt, classification, jobId);
@@ -95,7 +98,7 @@ async function run(account: Account, now: Date): Promise<{ stored: number; skipp
 
   // A capped run resumes from its newest message (1 s back: a same-second sibling may have been cut off).
   const capped = messages.length >= MAX_PER_RUN;
-  setKv(account, "gmailLastSync", capped ? new Date(Date.parse(messages[messages.length - 1].receivedAt) - 1000).toISOString() : now.toISOString());
+  if (getKv(account, "gmailToken") === connection) setKv(account, "gmailLastSync", capped ? new Date(Date.parse(messages[messages.length - 1].receivedAt) - 1000).toISOString() : now.toISOString());
   return result;
 }
 
