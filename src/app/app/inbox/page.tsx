@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { jobLabel } from "@/components/job-status-badge";
 import { requireSession } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { getAccountDb } from "@/lib/db";
 import { listJobs } from "@/lib/jobs";
 import { fmtDate } from "@/lib/utils";
 import { LinkEmail } from "./link-email";
@@ -10,9 +10,9 @@ import { LinkEmail } from "./link-email";
 type Row = { id: string; from_addr: string; subject: string; received_at: string; classification: string };
 
 export default async function InboxPage() {
-  await requireSession();
-  const rows = getDb().prepare("SELECT id, from_addr, subject, received_at, classification FROM emails WHERE job_id IS NULL ORDER BY received_at DESC").all() as Row[];
-  const jobs = listJobs().map((j) => {
+  const account = await requireSession();
+  const rows = getAccountDb(account).prepare("SELECT id, from_addr, subject, received_at, classification FROM emails WHERE job_id IS NULL ORDER BY received_at DESC").all() as Row[];
+  const jobs = listJobs(account).map((j) => {
     const l = jobLabel(j, false);
     return { id: j.id, label: `${l.company} — ${l.title}` };
   });

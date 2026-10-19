@@ -37,9 +37,9 @@ function Area({ label, name, hint, defaultValue }: { label: string; name: string
 }
 
 export default async function SettingsPage() {
-  await requireSession();
-  const s = getSettings();
-  const cv = getMasterCv();
+  const account = await requireSession();
+  const s = getSettings(account);
+  const cv = getMasterCv(account);
   const keyConfigured = !!process.env.ANTHROPIC_API_KEY;
 
   return (
@@ -53,7 +53,7 @@ export default async function SettingsPage() {
         <Area label="Links" name="links" hint="One per line: LinkedIn, GitHub, portfolio." defaultValue={lines(s.profile.links)} />
       </SectionForm>
 
-      <MasterCvCard initial={cv} parse={getCvParseState()} />
+      <MasterCvCard initial={cv} parse={getCvParseState(account)} />
 
       <SectionForm action={savePreferences} title="Preferences" description="What you are looking for. One item per line.">
         <Area label="Target roles" name="targetRoles" hint="One per line." defaultValue={lines(s.preferences.targetRoles)} />
@@ -102,8 +102,10 @@ export default async function SettingsPage() {
         <Field label="Outlook forwarding address" name="outlookAddress" type="email" wide defaultValue={s.outlookAddress ?? ""} />
         <Field label="AI model" name="aiModel" wide defaultValue={s.aiModel} />
         <div className="flex items-center gap-2 sm:col-span-2">
-          <Switch id="publicPageEnabled" name="publicPageEnabled" defaultChecked={s.publicPageEnabled} />
-          <Label htmlFor="publicPageEnabled">Show the public results page</Label>
+          {account.role === "owner" && <>
+            <Switch id="publicPageEnabled" name="publicPageEnabled" defaultChecked={s.publicPageEnabled} />
+            <Label htmlFor="publicPageEnabled">Show the public results page</Label>
+          </>}
         </div>
       </SectionForm>
 
@@ -116,7 +118,7 @@ export default async function SettingsPage() {
           Claude API key: <span className={keyConfigured ? "font-semibold text-success" : "font-semibold text-danger"}>{keyConfigured ? "configured" : "missing"}</span>
         </CardContent>
       </Card>
-      <GmailCard hasToken={getKv("gmailToken") !== null} error={getKv<string>("gmailError")} lastSync={getKv<string>("gmailLastSync")} syncing={isSyncing()} />
+      <GmailCard hasToken={getKv(account, "gmailToken") !== null} error={getKv<string>(account, "gmailError")} lastSync={getKv<string>(account, "gmailLastSync")} syncing={isSyncing(account)} />
       <Card>
         <CardHeader>
           <CardTitle>Bookmarklet</CardTitle>

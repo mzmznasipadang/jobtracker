@@ -14,12 +14,12 @@ import { fmtDate } from "@/lib/utils";
 const COLUMNS = STATUSES.filter((s) => s !== "skipped");
 
 export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">) {
-  await requireSession();
+  const account = await requireSession();
   const sp = await searchParams;
   const one = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : sp[k]);
   const status = Status.safeParse(one("status")).data;
   const source = Source.safeParse(one("source")).data;
-  const all = listJobs();
+  const all = listJobs(account);
   const rows = all.filter((j) => (!status || j.status === status) && (!source || j.source === source));
   const skipped = all.filter((j) => j.status === "skipped");
   const showSkipped = one("skipped") === "1";

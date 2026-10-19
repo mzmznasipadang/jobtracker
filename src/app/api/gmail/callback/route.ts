@@ -6,7 +6,7 @@ import { appUrl, exchangeCode, STATE_COOKIE } from "@/lib/email/gmail";
 import { getKv, setKv } from "@/lib/settings";
 
 export async function GET(req: NextRequest) {
-  await requireSession();
+  const account = await requireSession();
   const jar = await cookies();
   const expected = jar.get(STATE_COOKIE)?.value;
   jar.delete({ name: STATE_COOKIE, path: "/api/gmail" }); // path must match the one it was set with
@@ -18,12 +18,12 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   if (!code) return back("denied");
   try {
-    await exchangeCode(code);
+    await exchangeCode(account, code);
   } catch (e) {
     // message only: a gaxios error object carries the request body, including the client secret
     console.error("Gmail code exchange failed:", e instanceof Error ? e.message : e);
-    setKv("gmailError", "Could not complete the Gmail connection — try again");
+    setKv(account, "gmailError", "Could not complete the Gmail connection — try again");
     return back("error");
   }
-  return back(getKv("gmailError") ? "error" : "connected");
+  return back(getKv(account, "gmailError") ? "error" : "connected");
 }

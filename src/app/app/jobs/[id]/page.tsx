@@ -15,9 +15,9 @@ import { getJob, isBusy, listEvents } from "@/lib/jobs";
 import { getTailored } from "@/lib/tailor/tailor";
 
 export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
-  await requireSession();
+  const account = await requireSession();
   const { id: raw } = await params;
-  const full = /^\d+$/.test(raw) ? getJob(Number(raw)) : null;
+  const full = /^\d+$/.test(raw) ? getJob(account, Number(raw)) : null;
   if (!full) notFound();
   const job = { ...full, rawText: null };
   const busy = isBusy(job);
@@ -46,11 +46,11 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
 
       <JobAlerts job={job} busy={busy} rawText={rawText} />
       <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
-      <TailorPanel jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(job.id)} disabled={busy || !extracted || !!job.extractError} />
+      <TailorPanel jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={busy || !extracted || !!job.extractError} />
       <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />
       <Card>
         <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
-        <CardContent><Timeline events={listEvents(job.id)} /></CardContent>
+        <CardContent><Timeline events={listEvents(account, job.id)} /></CardContent>
       </Card>
     </div>
   );

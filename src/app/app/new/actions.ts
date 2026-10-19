@@ -12,7 +12,7 @@ const Input = z.object({ url: z.string().max(2000), text: z.string().max(200_000
 
 // Redirects to the job on success (extraction continues in the background); returns only failures.
 export async function captureAction(input: { url: string; text: string }): Promise<CaptureResult> {
-  await requireSession();
+  const account = await requireSession();
   const parsed = Input.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Input is too long", needsText: false };
   let { url, text } = parsed.data;
@@ -22,7 +22,7 @@ export async function captureAction(input: { url: string; text: string }): Promi
   let id: number;
   try {
     // `done` (extraction + checks) is deliberately not awaited.
-    ({ id } = await captureJob({ url, text: text.trim() || undefined }));
+    ({ id } = await captureJob(account, { url, text: text.trim() || undefined }));
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     if (msg.startsWith("Could not fetch")) return { ok: false, error: "This site blocks servers — paste the description or use the bookmarklet", needsText: true };

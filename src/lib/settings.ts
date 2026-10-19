@@ -1,4 +1,4 @@
-import type { Account } from "./accounts";
+import { getActiveAccount, type Account } from "./accounts";
 import { getAccountDb } from "./db";
 import { Settings } from "./types";
 
@@ -29,7 +29,10 @@ function merge(base: unknown, patch: unknown): unknown {
 }
 
 export function saveSettings(account: Account, patch: DeepPartial<Settings>): Settings {
+  const current = getActiveAccount(account.id);
+  if (!current) throw new Error("An active account is required");
   const next = Settings.parse(merge(getSettings(account), patch));
+  if (current.role !== "owner") next.publicPageEnabled = false;
   setKv(account, "settings", next);
   return next;
 }

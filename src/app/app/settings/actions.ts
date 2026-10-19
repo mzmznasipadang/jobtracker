@@ -1,5 +1,6 @@
 "use server";
 
+import type { Account } from "@/lib/accounts";
 import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { AiError } from "@/lib/ai";
@@ -26,10 +27,10 @@ function message(e: unknown): string {
 }
 
 // requireSession redirects by throwing, so it stays outside the try.
-async function guarded<T extends object>(fn: () => T | Promise<T>): Promise<Result<T>> {
-  await requireSession();
+async function guarded<T extends object>(fn: (account: Account) => T | Promise<T>): Promise<Result<T>> {
+  const account = await requireSession();
   try {
-    const out = await fn();
+    const out = await fn(account);
     revalidatePath("/app/settings");
     return { ok: true, ...out };
   } catch (e) {
@@ -38,7 +39,7 @@ async function guarded<T extends object>(fn: () => T | Promise<T>): Promise<Resu
   }
 }
 
-const save = (patch: Parameters<typeof saveSettings>[0]) => guarded(() => (saveSettings(patch), {}));
+const save = (patch: Parameters<typeof saveSettings>[1]) => guarded((account) => (saveSettings(account, patch), {}));
 
 export const saveProfile = async (f: FormData) =>
   save({ profile: { name: str(f, "name"), email: str(f, "email"), phone: str(f, "phone"), links: list(f, "links") } });
@@ -83,9 +84,9 @@ export const saveGeneral = async (f: FormData) =>
   });
 
 export async function parseMasterCv(f: FormData) {
-  return guarded(async () => {
+  return guarded(async (account) => {
     const file = f.get("pdf");
-    let input: Parameters<typeof startCvParse>[0];
+    let input: Parameters<typeof startCvParse>[1];
     if (file instanceof File && file.size > 0) {
       if (file.size > MAX_PDF) throw new UserError("PDF is larger than 10 MB");
       const pdf = Buffer.from(await file.arrayBuffer());
@@ -97,7 +98,7 @@ export async function parseMasterCv(f: FormData) {
       input = { text };
     }
     try {
-      void startCvParse(input); // deliberately not awaited
+      void startCvParse(account, input); // deliberately not awaited
     } catch (e) {
       throw new UserError((e as Error).message);
     }
@@ -106,21 +107,21 @@ export async function parseMasterCv(f: FormData) {
 }
 
 export async function clearCvParse() {
-  return guarded(() => (clearCvParseState(), {}));
+  return guarded((account) => (clearCvParseState(account), {}));
 }
 
 export async function saveMasterCvAction(cv: MasterCv) {
-  return guarded(() => {
+  return guarded((account) => {
     const parsed = MasterCv.parse(cv);
-    saveMasterCv({ ...parsed, experience: parsed.experience.map((e) => ({ ...e, bullets: e.bullets.filter((b) => b.text.trim()) })) });
+    saveMasterCv(account, { ...parsed, experience: parsed.experience.map((e) => ({ ...e, bullets: e.bullets.filter((b) => b.text.trim()) })) });
     return {};
   });
 }
 
 // Not awaited (Cloudflare cuts requests at ~100 s; classification calls Claude). The card polls gmailSyncing.
 export async function syncGmail() {
-  return guarded(() => {
-    syncInbox()
+  return guarded((account) => {
+    syncInbox(account)
       .then(() => revalidatePath("/app/inbox"))
       .catch((e) => console.error("Gmail sync failed:", e instanceof Error ? e.message : e));
     return {};

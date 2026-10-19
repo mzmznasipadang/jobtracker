@@ -19,7 +19,6 @@ export function openDb(path: string): Database.Database {
   return db;
 }
 
-let db: Database.Database | null = null;
 const accounts = new Map<number, Database.Database>();
 
 export function getAccountDb(account: Account): Database.Database {
@@ -29,13 +28,7 @@ export function getAccountDb(account: Account): Database.Database {
   return connection;
 }
 
-export function getDb(): Database.Database {
-  return (db ??= openDb(process.env.DB_PATH ?? "./data/jobtracker.db"));
-}
-
 export function resetDb(): void {
-  db?.close();
-  db = null;
   for (const connection of accounts.values()) connection.close();
   accounts.clear();
 }

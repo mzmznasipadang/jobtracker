@@ -1,3 +1,4 @@
+import { getOwnerAccount } from "../lib/accounts";
 import { syncInbox } from "../lib/email/sync";
 import { runGhostDetection } from "../lib/ghost";
 import { getKv } from "../lib/settings";
@@ -9,17 +10,18 @@ const SHUTDOWN_GRACE_MS = 10_000;
 const fail = (step: string, e: unknown) => console.error(`[worker] ${step} failed: ${e instanceof Error ? e.message : String(e)}`);
 
 async function cycle(): Promise<void> {
+  const account = getOwnerAccount();
   try {
-    if (getKv("gmailError")) console.log("[worker] sync paused: Gmail needs reconnecting");
+    if (getKv(account, "gmailError")) console.log("[worker] sync paused: Gmail needs reconnecting");
     else {
-      const { stored, skipped } = await syncInbox();
+      const { stored, skipped } = await syncInbox(account);
       console.log(`[worker] sync: stored ${stored}, skipped ${skipped}`);
     }
   } catch (e) {
     fail("sync", e);
   }
   try {
-    const { flagged, ghosted } = runGhostDetection();
+    const { flagged, ghosted } = runGhostDetection(account);
     console.log(`[worker] ghost: flagged ${flagged}, ghosted ${ghosted}`);
   } catch (e) {
     fail("ghost detection", e);

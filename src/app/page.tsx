@@ -1,3 +1,4 @@
+import { getOwnerAccount } from "@/lib/accounts";
 import { MetricsTable, Rate, notEnoughData } from "@/components/metrics-table";
 import { WeeklyBars } from "@/components/weekly-bars";
 import { Wordmark } from "@/components/wordmark";
@@ -17,8 +18,9 @@ function Tile({ label, value, note }: { label: string; value: React.ReactNode; n
 }
 
 export default function PublicResults() {
-  const { publicPageEnabled, pipeline } = getSettings();
-  const stats = publicPageEnabled ? computeMetrics() : null;
+  const account = getOwnerAccount();
+  const { publicPageEnabled, pipeline } = getSettings(account);
+  const stats = publicPageEnabled ? computeMetrics(account) : null;
   const days = pipeline.ghostDays;
   const rateTile = (label: string, key: keyof Rates) => (
     <Tile label={label} value={<Rate value={stats!.totals[key]} ghostDays={days} />} note={stats!.totals[key] == null ? notEnoughData(days) : undefined} />

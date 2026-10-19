@@ -7,9 +7,9 @@ import { linkEmail as link } from "@/lib/email/sync";
 
 // requireSession redirects by throwing, so it stays outside the try.
 export async function linkEmail(emailId: string, jobId: number): Promise<{ ok: true } | { ok: false; error: string }> {
-  await requireSession();
+  const account = await requireSession();
   try {
-    link(z.string().min(1).parse(emailId), z.number().int().positive().parse(jobId));
+    link(account, z.string().min(1).parse(emailId), z.number().int().positive().parse(jobId));
   } catch (e) {
     return { ok: false, error: e instanceof z.ZodError ? "Invalid input" : e instanceof Error ? e.message : "Something went wrong" };
   }

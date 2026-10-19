@@ -1,3 +1,4 @@
+import { getOwnerAccount, type Account } from "./accounts";
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -34,8 +35,9 @@ export function isValidSession(token: string | undefined, now = Date.now()): boo
   return safeEqual(Buffer.from(mac), Buffer.from(sign(expires))) && now <= Number(expires);
 }
 
-export async function requireSession(): Promise<void> {
+export async function requireSession(): Promise<Account> {
   if (!isValidSession((await cookies()).get(SESSION_COOKIE)?.value)) redirect("/login");
+  return getOwnerAccount();
 }
 
 export function safeNext(next: string | null): string {
