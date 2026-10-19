@@ -57,6 +57,13 @@ describe("computeMetrics", () => {
   });
 });
 
+describe("unknown source", () => {
+  it("is counted under other", () => {
+    seed("somewhere-new", "applied", 3);
+    expect(computeMetrics(NOW).sources.find((x) => x.source === "other")).toMatchObject({ sent: 1 });
+  });
+});
+
 describe("GET /api/public/stats", () => {
   it("returns only PublicStats keys", async () => {
     const res = await GET();

@@ -4,7 +4,7 @@ import { extractJob } from "./capture/extract";
 import { fetchJobText } from "./capture/fetch";
 import { canonicalUrl, fetchUrlFor, sourceFromUrl } from "./capture/url";
 import { getDb } from "./db";
-import { Job, type Source, type Status } from "./types";
+import { Job, Source, type Status } from "./types";
 
 type Row = Record<string, unknown>;
 type Busy = NonNullable<Job["busy"]>;
@@ -16,7 +16,7 @@ const now = () => new Date().toISOString();
 
 function toJob(r: Row): Job {
   return Job.parse({
-    id: r.id, url: r.url, source: r.source, status: r.status, busy: r.busy, busySince: r.busy_since, busyError: r.busy_error,
+    id: r.id, url: r.url, source: Source.safeParse(r.source).success ? r.source : "other", status: r.status, busy: r.busy, busySince: r.busy_since, busyError: r.busy_error,
     statusLocked: !!r.status_locked, company: r.company, companyDomain: r.company_domain, title: r.title,
     location: r.location, workMode: r.work_mode, employmentType: r.employment_type,
     salaryMin: r.salary_min, salaryMax: r.salary_max, salaryCurrency: r.salary_currency, salaryPeriod: r.salary_period,

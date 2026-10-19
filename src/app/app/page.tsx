@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MetricsTable } from "@/components/metrics-table";
 import { jobLabel, StatusBadge, STATUSES } from "@/components/job-status-badge";
+import { requireSession } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { listJobs } from "@/lib/jobs";
 import { computeMetrics } from "@/lib/metrics";
@@ -8,7 +9,8 @@ import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
-export default function Overview() {
+export default async function Overview() {
+  await requireSession();
   const jobs = listJobs();
   const counts = Object.fromEntries(STATUSES.map((s) => [s, jobs.filter((j) => j.status === s).length]));
 
@@ -18,8 +20,8 @@ export default function Overview() {
     if (j.status === "ready") add(j.id, "Ready to apply");
     if (j.followUpDue) add(j.id, "Follow-up due");
   }
-  const emails = getDb().prepare("SELECT job_id, count(*) AS n FROM emails WHERE job_id IS NOT NULL AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days') GROUP BY job_id").all() as { job_id: number; n: number }[];
-  for (const e of emails) add(e.job_id, `${e.n} new email${e.n > 1 ? "s" : ""}`);
+  const emails = getDb().prepare("SELECT job_id, count(*) AS n FROM emails WHERE job_id IS NOT NULL AND classification IN ('rejection','interview','offer') AND received_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-7 days') GROUP BY job_id").all() as { job_id: number; n: number }[];
+  for (const e of emails) add(e.job_id, e.n > 1 ? `${e.n} new replies` : "New reply");
   const actionable = jobs.filter((j) => reasons.has(j.id));
 
   return (
