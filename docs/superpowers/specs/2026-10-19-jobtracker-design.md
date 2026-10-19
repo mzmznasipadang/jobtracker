@@ -58,11 +58,18 @@ Success looks like: pasting a link takes them to a ready-to-send application in 
 - Dedupe by canonical URL; re-pasting an existing job opens it.
 
 ### 4.2 Check (runs automatically after capture)
-- **Match score 0–100** against the master CV, with the top reasons, the gaps, and missing keywords.
-- **Salary fit**: compare the listed range with Victor's expected/minimum salary from settings. Result: `ok`, `below minimum`, `above range` (their ask is higher than the top of the range — the Dealls/Kalibrr problem), or `unknown — ask early`.
+- **Match score 0–100** against the master CV **and the preferences in settings** (target roles, seniority, remote/location, employment type, deal-breakers), with the top reasons, the gaps, and missing keywords. A deal-breaker caps the score.
+- **Salary fit**: normalise the listed range to monthly IDR (fixed FX rates and hours/month in settings; yearly ÷ 12), then compare with settings. Result:
+  - `below minimum` — top of range < Victor's minimum (hard mismatch).
+  - `above range` — top of range ≥ minimum but < Victor's expected (the Dealls/Kalibrr problem; soft warning, negotiate or lower the ask).
+  - `ok` — range reaches expected.
+  - `unknown — ask early` — no range or "negotiable".
+  In v1 salary fit only warns; it never auto-skips a job.
 - **Scam risk** `low / medium / high` with reasons, for every source but weighted for Glints. Red flags: Telegram/WhatsApp-only contact, any upfront fee or "training deposit", pay far above market, free-mail recruiter address, vague or unverifiable company, pressure to move off-platform. High risk blocks auto-apply and shows a warning.
 
 ### 4.3 Tailor
+Runs when Victor clicks **Tailor** on a job (not automatically — keeps cost and control with Victor; my call). Re-running creates a new version.
+
 Produces, per job, without inventing anything not in the master CV:
 - Tailored CV, rendered to an ATS-friendly single-column PDF (HTML template printed by headless Chromium).
 - Cover letter (short, specific).
@@ -79,12 +86,15 @@ Prompt guidance is adapted from the Claude skills Victor named: `resume-tailor`,
 - Statuses: `Saved → Ready → Applied → Interview → Offer`, plus `Rejected`, `Ghosted`, `Skipped`.
 - Board view (columns by status) and a table view with filters (source, status, score, date).
 - Each job has a timeline: status changes, linked emails, what was sent.
+- Manual actions on any job: change status, **Replied elsewhere** (for replies via LinkedIn messages, WhatsApp, phone — stops ghost detection), add a note.
 - Ghost detection: an `Applied` job with no human reply after N days (default 14, setting) becomes `Ghosted`; at day M (default 7) it gets a "follow up once" flag. Automated "your application was viewed/received" emails do **not** count as a reply.
 
 ## 5. Email (Gmail)
 
 - The app connects to Victor's Gmail with its own credentials — the Gmail connection inside Claude does not give the deployed app access. Method: see open question Q1.
-- Poll the inbox every ~10 minutes. For each new message, try to match it to a job by sender domain, company name and subject.
+- First sync backfills 60 days; then poll every ~10 minutes.
+- **Privacy scope** (my call): only messages that come from a tracked job's company domain, a known job-board domain (LinkedIn, JobStreet, Glints, Wellfound, Kalibrr, Dealls, ATS senders like Greenhouse/Lever/Workable), mail forwarded from Victor's Outlook, or that hit the hiring keyword rules are stored or sent to Claude. Everything else is ignored and never leaves the server.
+- LinkedIn/JobStreet "new message from recruiter" notification emails count as a reply for the matched job. For each new message, try to match it to a job by sender domain, company name and subject.
 - Classify matched messages as `rejection`, `interview / assessment`, `offer`, `auto-ack` or `other`: cheap keyword rules first (English and Indonesian, e.g. "unfortunately", "other candidates", "tidak dapat melanjutkan"), Claude for anything ambiguous. Update the status automatically; Victor can override, and an override is never re-overwritten by a later sync.
 - Unmatched recruiter-looking emails go to an "Unsorted" list where Victor can link them to a job.
 - Phase 2: send email applications (tailored CV attached) via Gmail SMTP/API.
@@ -108,7 +118,7 @@ Anything that fails goes to the Ready queue with the reason shown. Every auto-se
 
 - `tracking.naspadstudio.id/` (no login). Look and feel: a clean, branded status-page style like `monitor.naspadstudio.id`.
 - Per source: applications sent, response rate, interview rate, ghost rate. Plus overall totals and a simple trend over recent weeks. "Last updated" timestamp.
-- Definitions: *response* = any human reply (rejection, interview, offer); *ghosted* = §4.5.
+- Definitions: *response* = any human reply (rejection, interview, offer, or "replied elsewhere"); *ghosted* = §4.5. Rates only count applications older than the ghost window (default 14 days), so recent ones don't drag the numbers down.
 - Numbers are aggregated on the server. The public endpoint returns only aggregates — never company names, job titles, salaries, emails or CV data.
 - A settings toggle can hide the page.
 
@@ -121,7 +131,8 @@ Routes (builder may rename): `/login`, `/app` (overview), `/app/jobs` (board + t
 **Settings page**
 - Profile: name, contact, links (LinkedIn, GitHub, portfolio).
 - Master CV: upload a PDF (Claude parses it into structured data) or paste text; then edit the structured CV in the page. This is the single source of truth for tailoring.
-- Salary: expected and minimum monthly (IDR), and expected rate for remote/USD work.
+- Preferences: target roles, seniority, remote/on-site/hybrid and locations, employment types, deal-breakers (free text list).
+- Salary: expected and minimum monthly (IDR), expected rate for remote/USD work, FX rates and hours/month used for normalising.
 - Pipeline: ghost days, follow-up days, default CV language.
 - Auto-apply (phase 2): global switch, dry-run switch, threshold, daily cap, per-channel toggles, feed keywords, Freelancer bid rules.
 - Public page on/off.
