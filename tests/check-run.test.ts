@@ -19,7 +19,7 @@ const match = { score: 85, reasons: ["fit"], gaps: [], missingKeywords: [], deal
 const reply = (m: object, scam: object) => ask.mockImplementation((async (o: { system: string }) => (o.system === MATCH_JOB ? m : scam)) as never);
 
 function seed(over: { rawText?: string; recruiter?: string } = {}) {
-  return Number(getDb().prepare("INSERT INTO jobs (url, source, company, title, raw_text, company_domain, recruiter_email, salary_min, salary_max, salary_currency, salary_period) VALUES ('u' || abs(random()),'glints','Acme','Eng',?,'acme.test',?,10000000,15000000,'IDR','month')")
+  return Number(getDb().prepare("INSERT INTO jobs (url, source, company, title, raw_text, company_domain, apply_method, recruiter_email, salary_min, salary_max, salary_currency, salary_period) VALUES ('u' || abs(random()),'glints','Acme','Eng',?,'acme.test','email',?,10000000,15000000,'IDR','month')")
     .run(over.rawText ?? "normal posting", over.recruiter ?? null).lastInsertRowid);
 }
 
@@ -64,6 +64,17 @@ describe("runChecks", () => {
     await runChecks(id);
     expect(ask).toHaveBeenCalledTimes(1);
     expect(getJob(id)).toMatchObject({ matchScore: null, matchJson: '{"reason":"no master CV"}', salaryFit: "below_minimum", status: "ready" });
+  });
+
+  it("does not promote when the user changed the status while the AI calls were pending", async () => {
+    const id = seed();
+    ask.mockImplementation((async (o: { system: string }) => {
+      getDb().prepare("UPDATE jobs SET status='skipped' WHERE id=?").run(id);
+      return o.system === MATCH_JOB ? match : { risk: "low", reasons: [] };
+    }) as never);
+    await runChecks(id);
+    expect(getJob(id)!.status).toBe("skipped");
+    expect(getDb().prepare("SELECT data_json FROM events WHERE job_id=? AND kind='status'").all(id)).toEqual([]);
   });
 
   it("does not move a non-saved job or one whose extraction failed", async () => {

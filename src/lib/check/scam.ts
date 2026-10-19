@@ -9,7 +9,8 @@ const FEE = /\b(biaya|deposit|bayar|registration fee|training fee|transfer)\b/i;
 // The pay rule needs the user's settings; without them it is skipped.
 export function scamSignals(job: JobFields, rawText: string, salary?: Settings["salary"]): string[] {
   const out: string[] = [];
-  if (CHAT.test(rawText) && !job.applyEmail && !job.applyUrl) out.push("Contact only through Telegram/WhatsApp, no company email or application site");
+  // A site/form apply or an apply email is a company route; chat apps alone are the flag.
+  if (CHAT.test(rawText) && job.applyMethod === "email" && !job.applyEmail) out.push("Contact only through Telegram/WhatsApp, no company email or application site");
   const fee = FEE.exec(rawText);
   if (fee) out.push(`Mentions a possible fee or payment ("${fee[0]}")`);
   for (const email of [job.recruiterEmail, job.applyEmail]) {

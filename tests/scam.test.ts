@@ -22,6 +22,11 @@ describe("scamSignals", () => {
     expect(ruleRisk(s)).toBe("low");
   });
 
+  it("does not flag chat apps when the posting applies through a site", () => {
+    const s = scamSignals({ ...job, applyMethod: "site", applyEmail: null }, "Experience with WhatsApp Business API is a plus");
+    expect(s).toEqual([]);
+  });
+
   it("flags a free-mail recruiter that is not the company domain", () => {
     const s = scamSignals({ ...job, recruiterEmail: "hr.company@gmail.com" }, "Apply now");
     expect(s).toHaveLength(1);

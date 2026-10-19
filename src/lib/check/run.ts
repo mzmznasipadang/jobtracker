@@ -53,8 +53,10 @@ export async function runChecks(jobId: number): Promise<void> {
   });
   const risk = ORDER[Math.max(ORDER.indexOf(ruleRisk(signals)), ORDER.indexOf(ai.risk))];
 
-  const promote = job.status === "saved" && job.extractError == null;
   getDb().transaction(() => {
+    // Decide at write time: the user may have changed the status while the Claude calls ran.
+    const cur = getDb().prepare("SELECT status, extract_error FROM jobs WHERE id = ?").get(jobId) as { status: string; extract_error: string | null };
+    const promote = cur.status === "saved" && cur.extract_error == null;
     getDb().prepare(`UPDATE jobs SET match_score=?, match_json=?, salary_fit=?, scam_risk=?, scam_json=?,
       status = CASE WHEN ? THEN 'ready' ELSE status END, updated_at=? WHERE id=?`)
       .run(score, matchJson, fit, risk, JSON.stringify({ signals, reasons: ai.reasons }), promote ? 1 : 0, new Date().toISOString(), jobId);
