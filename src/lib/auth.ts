@@ -10,11 +10,12 @@ const safeEqual = (a: Buffer, b: Buffer) => a.length === b.length && timingSafeE
 
 export function hashPassword(pw: string): string {
   const salt = randomBytes(16);
-  return `scrypt$${salt.toString("hex")}$${scryptSync(pw, salt, 64).toString("hex")}`;
+  // ":" not "$": dotenv-expand and docker compose interpolate "$..." in .env values
+  return `scrypt:${salt.toString("hex")}:${scryptSync(pw, salt, 64).toString("hex")}`;
 }
 
 export function verifyPassword(pw: string, stored: string): boolean {
-  const [scheme, salt, hash] = stored.split("$");
+  const [scheme, salt, hash] = stored.split(":");
   if (scheme !== "scrypt" || !salt || !hash) return false;
   return safeEqual(scryptSync(pw, Buffer.from(salt, "hex"), 64), Buffer.from(hash, "hex"));
 }

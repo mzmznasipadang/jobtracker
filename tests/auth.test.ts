@@ -5,10 +5,13 @@ const DAY = 86_400_000;
 
 test("password round-trip", () => {
   const h = hashPassword("hunter2");
-  expect(h).toMatch(/^scrypt\$[0-9a-f]+\$[0-9a-f]+$/);
+  expect(h).toMatch(/^scrypt:[0-9a-f]+:[0-9a-f]+$/);
+  expect(h).not.toContain("$");
   expect(verifyPassword("hunter2", h)).toBe(true);
   expect(verifyPassword("hunter3", h)).toBe(false);
   expect(verifyPassword("x", "garbage")).toBe(false);
+  expect(verifyPassword("hunter2", h.replaceAll(":", "$"))).toBe(false); // old $ form fails closed
+  expect(verifyPassword("hunter2", "scrypt:zz:zz")).toBe(false);
 });
 
 test("session validity", () => {
