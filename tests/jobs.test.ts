@@ -1,13 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb, getDb } from "@/lib/db";
 import { AiError, askJson } from "@/lib/ai";
+import { runChecks } from "@/lib/check/run";
 import { Job } from "@/lib/types";
 import {
   addNote, captureJob, getJob, listJobs, markRepliedElsewhere, retryExtraction, setStatus, startJobWork,
 } from "@/lib/jobs";
 
 vi.mock("@/lib/ai", async (orig) => ({ ...(await orig<typeof import("@/lib/ai")>()), askJson: vi.fn() }));
+vi.mock("@/lib/check/run", () => ({ runChecks: vi.fn(async () => {}) }));
 const ask = vi.mocked(askJson);
+const checks = vi.mocked(runChecks);
 
 const fields = {
   company: "Acme", companyDomain: "acme.test", title: "Engineer", location: "Jakarta", workMode: "remote" as const,
@@ -23,6 +26,7 @@ const events = (id: number) => (getDb().prepare("SELECT kind FROM events WHERE j
 beforeEach(() => {
   resetDb();
   ask.mockReset();
+  checks.mockReset();
   ask.mockResolvedValue(fields);
 });
 
@@ -52,6 +56,18 @@ describe("captureJob", () => {
     expect(getJob(id)).toMatchObject({ rawText: TEXT, busy: null, extractError: expect.stringContaining("overloaded") });
     await retryExtraction(id);
     expect(getJob(id)).toMatchObject({ company: "Acme", extractError: null, busy: null });
+  });
+
+  it("runs checks only after a successful extraction; a failing check keeps the extracted fields", async () => {
+    ask.mockRejectedValueOnce(new AiError("api", "overloaded"));
+    const a = await captureJob({ url: LI1, text: TEXT });
+    await a.done;
+    expect(checks).not.toHaveBeenCalled();
+    await retryExtraction(a.id);
+    expect(checks).toHaveBeenCalledWith(a.id);
+    checks.mockRejectedValueOnce(new AiError("api", "check down"));
+    await retryExtraction(a.id);
+    expect(getJob(a.id)).toMatchObject({ company: "Acme", extractError: null, busy: null, busyError: expect.stringContaining("check down") });
   });
 
   it("throws when the page cannot be fetched and no text is given", async () => {

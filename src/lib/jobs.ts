@@ -1,4 +1,5 @@
 import { AiError } from "./ai";
+import { runChecks } from "./check/run";
 import { extractJob } from "./capture/extract";
 import { fetchJobText } from "./capture/fetch";
 import { canonicalUrl, fetchUrlFor, sourceFromUrl } from "./capture/url";
@@ -79,7 +80,8 @@ async function extractWork(id: number): Promise<void> {
     getDb().prepare("UPDATE jobs SET extract_error = ?, updated_at = ? WHERE id = ?").run(`${e.code}: ${e.message}`, now(), id);
     return; // job and raw_text are kept so retryExtraction can run later
   }
-  // TASK 6 HOOK: call runChecks(id) here (extraction succeeded; checks need the extracted fields).
+  // Not caught: a failed check surfaces as busy_error while the extracted fields stay saved.
+  await runChecks(id);
 }
 
 export function retryExtraction(id: number): Promise<void> {
