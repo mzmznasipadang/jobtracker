@@ -40,6 +40,7 @@ export const Job = JobFields.extend({
   source: Source,
   status: Status,
   busy: z.enum(["extracting", "checking", "tailoring"]).nullable(),
+  busySince: z.string().nullable(),
   busyError: z.string().nullable(),
   statusLocked: z.boolean(),
   rawText: z.string().nullable(),

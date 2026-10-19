@@ -23,7 +23,8 @@ export async function askJson<T>(
   let res;
   try {
     // No thinking/temperature: opus-5-5 rejects them; depth is controlled by effort only.
-    res = await client.beta.messages.parse({
+    // create (not parse) so refusals and truncation are checked before any output parsing.
+    res = await client.beta.messages.create({
       model: getSettings().aiModel,
       max_tokens: opts.maxTokens ?? 16000, // >16000 must stream (global constraints)
       betas: ["server-side-fallback-2026-07-01"],
@@ -33,10 +34,18 @@ export async function askJson<T>(
       output_config: { effort: opts.effort ?? "medium", format: zodOutputFormat(opts.schema) },
     });
   } catch (e) {
-    const bad = e instanceof SyntaxError || e instanceof z.ZodError;
-    throw new AiError(bad ? "unparseable" : "api", e instanceof Error ? e.message : String(e), { cause: e });
+    throw new AiError("api", e instanceof Error ? e.message : String(e), { cause: e });
   }
   if (res.stop_reason === "refusal") throw new AiError("refusal", "Claude declined this request");
-  if (res.parsed_output == null) throw new AiError("unparseable", `No parseable output (stop_reason: ${res.stop_reason})`);
-  return res.parsed_output as T;
+  if (res.stop_reason === "max_tokens") throw new AiError("unparseable", "Output was truncated (max_tokens)");
+  const text = res.content.map((b) => (b.type === "text" ? b.text : "")).join("");
+  let json: unknown;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    throw new AiError("unparseable", "Output was not valid JSON");
+  }
+  const parsed = opts.schema.safeParse(json);
+  if (!parsed.success) throw new AiError("unparseable", `Output did not match the schema: ${parsed.error.message}`);
+  return parsed.data;
 }

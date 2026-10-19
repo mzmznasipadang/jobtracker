@@ -7,6 +7,7 @@ CREATE TABLE jobs (
   status TEXT NOT NULL DEFAULT 'saved',
   status_locked INTEGER NOT NULL DEFAULT 0,
   busy TEXT,
+  busy_since TEXT,
   busy_error TEXT,
   company TEXT NOT NULL,
   company_domain TEXT,

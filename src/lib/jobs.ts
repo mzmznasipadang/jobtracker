@@ -9,11 +9,13 @@ type Row = Record<string, unknown>;
 type Busy = NonNullable<Job["busy"]>;
 type EventKind = "status" | "email" | "note" | "check" | "tailor";
 
+export const BUSY_STALE_MS = 15 * 60 * 1000;
+
 const now = () => new Date().toISOString();
 
 function toJob(r: Row): Job {
   return Job.parse({
-    id: r.id, url: r.url, source: r.source, status: r.status, busy: r.busy, busyError: r.busy_error,
+    id: r.id, url: r.url, source: r.source, status: r.status, busy: r.busy, busySince: r.busy_since, busyError: r.busy_error,
     statusLocked: !!r.status_locked, company: r.company, companyDomain: r.company_domain, title: r.title,
     location: r.location, workMode: r.work_mode, employmentType: r.employment_type,
     salaryMin: r.salary_min, salaryMax: r.salary_max, salaryCurrency: r.salary_currency, salaryPeriod: r.salary_period,
@@ -46,11 +48,16 @@ export const addNote = (jobId: number, text: string) => addEvent(jobId, "note", 
 
 // Throws synchronously if the job is already busy. The returned promise never rejects.
 export function startJobWork(jobId: number, kind: Busy, work: () => Promise<void>): Promise<void> {
-  // Single conditional UPDATE so two callers can't both claim the job.
-  const claimed = getDb().prepare("UPDATE jobs SET busy = ?, busy_error = NULL, updated_at = ? WHERE id = ? AND busy IS NULL").run(kind, now(), jobId);
+  // Single conditional UPDATE so two callers can't both claim the job; a busy job older than
+  // BUSY_STALE_MS is presumed orphaned (e.g. server restart mid-work) and can be re-claimed.
+  const t = now();
+  const stale = new Date(Date.now() - BUSY_STALE_MS).toISOString();
+  const claimed = getDb()
+    .prepare("UPDATE jobs SET busy = ?, busy_since = ?, busy_error = NULL, updated_at = ? WHERE id = ? AND (busy IS NULL OR busy_since < ?)")
+    .run(kind, t, t, jobId, stale);
   if (claimed.changes === 0) throw new Error(getJob(jobId) ? `Job ${jobId} is busy` : `Job ${jobId} not found`);
   const finish = (error: string | null) =>
-    getDb().prepare("UPDATE jobs SET busy = NULL, busy_error = ?, updated_at = ? WHERE id = ?").run(error, now(), jobId);
+    getDb().prepare("UPDATE jobs SET busy = NULL, busy_since = NULL, busy_error = ?, updated_at = ? WHERE id = ?").run(error, now(), jobId);
   return work().then(
     () => void finish(null),
     (e) => void finish(e instanceof Error ? e.message : String(e)),

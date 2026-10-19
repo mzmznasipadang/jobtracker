@@ -81,6 +81,20 @@ describe("startJobWork", () => {
   });
 });
 
+describe("stale busy", () => {
+  const busyAgo = (id: number, ms: number) =>
+    getDb().prepare("UPDATE jobs SET busy='checking', busy_since=? WHERE id=?").run(new Date(Date.now() - ms).toISOString(), id);
+
+  it("claims a job busy for 16 min but not one busy for 1 min", async () => {
+    const id = await seed();
+    busyAgo(id, 1 * 60_000);
+    expect(() => startJobWork(id, "tailoring", async () => {})).toThrow(/busy/);
+    busyAgo(id, 16 * 60_000);
+    await startJobWork(id, "tailoring", async () => {});
+    expect(getJob(id)).toMatchObject({ busy: null, busySince: null });
+  });
+});
+
 describe("setStatus", () => {
   it("user status locks; email/ghost then no-op", async () => {
     const id = await seed();
