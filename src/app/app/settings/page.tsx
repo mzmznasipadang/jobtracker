@@ -1,3 +1,7 @@
+import { getAiConfig, providerAvailability } from "@/lib/ai-settings";
+import { listSkills, getEffectiveAiSummary } from "@/lib/cv-skills";
+import { AiCard } from "./ai-card";
+import { SkillsCard } from "./skills-card";
 import { listAccounts } from "@/lib/accounts";
 import { AccountsCard } from "./accounts-card";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,7 +46,8 @@ export default async function SettingsPage() {
   const account = await requireSession();
   const s = getSettings(account);
   const cv = getMasterCv(account);
-  const keyConfigured = !!process.env.ANTHROPIC_API_KEY;
+  const aiConfig = getAiConfig();
+  const effectiveAi = getEffectiveAiSummary();
 
   return (
     <div className="mx-auto grid max-w-3xl gap-6">
@@ -104,7 +109,6 @@ export default async function SettingsPage() {
 
       <SectionForm action={saveGeneral} title="General">
         <Field label="Outlook forwarding address" name="outlookAddress" type="email" wide defaultValue={s.outlookAddress ?? ""} />
-        <Field label="AI model" name="aiModel" wide defaultValue={s.aiModel} />
         <div className="flex items-center gap-2 sm:col-span-2">
           {account.role === "owner" && <>
             <Switch id="publicPageEnabled" name="publicPageEnabled" defaultChecked={s.publicPageEnabled} />
@@ -113,15 +117,10 @@ export default async function SettingsPage() {
         </div>
       </SectionForm>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Connections</CardTitle>
-          <CardDescription>Secrets live in the server environment, not here.</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm">
-          Claude API key: <span className={keyConfigured ? "font-semibold text-success" : "font-semibold text-danger"}>{keyConfigured ? "configured" : "missing"}</span>
-        </CardContent>
-      </Card>
+      {account.role === "owner" ? <>
+        <AiCard key={aiConfig.revision} config={aiConfig} available={providerAvailability()} />
+        <SkillsCard config={aiConfig} skills={listSkills(account)} />
+      </> : <Card><CardHeader><CardTitle>Shared AI configuration</CardTitle><CardDescription>Managed by the owner for everyone.</CardDescription></CardHeader><CardContent className="space-y-1 text-sm"><p>{effectiveAi.provider} · {effectiveAi.model}</p><p>Skills: {effectiveAi.primary}{effectiveAi.additional ? ` + ${effectiveAi.additional}` : ""}</p></CardContent></Card>}
       <GmailCard address={getKv<string>(account, "gmailAddress")} hasToken={getKv(account, "gmailToken") !== null} error={getKv<string>(account, "gmailError")} lastSync={getKv<string>(account, "gmailLastSync")} syncing={isSyncing(account)} />
       <Card>
         <CardHeader>

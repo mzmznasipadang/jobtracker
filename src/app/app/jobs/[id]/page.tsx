@@ -1,3 +1,4 @@
+import { getEffectiveAiSummary } from "@/lib/cv-skills";
 import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -46,7 +47,7 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
 
       <JobAlerts job={job} busy={busy} rawText={rawText} />
       <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
-      <TailorPanel jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={busy || !extracted || !!job.extractError} />
+      <TailorPanel effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={busy || !extracted || !!job.extractError} />
       <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />
       <Card>
         <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>

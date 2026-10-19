@@ -5,7 +5,7 @@ import { getKv, getSettings, saveSettings, setKv } from "@/lib/settings";
 import { getJob, listJobs, startJobWork } from "@/lib/jobs";
 import { computeMetrics } from "@/lib/metrics";
 import { getTailoredPdf } from "@/lib/tailor/tailor";
-vi.mock("@/lib/ai", () => ({ askJson: vi.fn(), AiError: class extends Error {} }));
+vi.mock("@/lib/ai", async orig => ({ ...await orig<typeof import("@/lib/ai")>(), askJson: vi.fn() }));
 vi.mock("@/lib/check/run", () => ({ runChecks: vi.fn(async () => {}) }));
 vi.mock("@/lib/email/gmail", () => ({ listMessages: vi.fn(), MAX_PER_RUN: 200 }));
 let fixture: ReturnType<typeof createAccountFixture>;

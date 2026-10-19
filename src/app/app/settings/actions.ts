@@ -81,7 +81,6 @@ export const saveGeneral = async (f: FormData) =>
   save({
     outlookAddress: str(f, "outlookAddress") || null,
     publicPageEnabled: f.get("publicPageEnabled") === "on",
-    aiModel: str(f, "aiModel"),
   });
 
 export async function parseMasterCv(f: FormData) {

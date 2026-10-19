@@ -1,4 +1,5 @@
 "use client";
+import type { getEffectiveAiSummary } from "@/lib/cv-skills";
 
 import { useState, useTransition } from "react";
 import { CheckIcon, CopyIcon, DownloadIcon } from "lucide-react";
@@ -34,7 +35,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function TailorPanel({ jobId, busy, versions, disabled }: { jobId: number; busy: boolean; versions: TailoredVersion[]; disabled: boolean }) {
+export function TailorPanel({ jobId, busy, versions, disabled, effectiveAi }: { effectiveAi: ReturnType<typeof getEffectiveAiSummary>; jobId: number; busy: boolean; versions: TailoredVersion[]; disabled: boolean }) {
   const [questions, setQuestions] = useState("");
   const [pending, start] = useTransition();
   const working = busy || pending;
@@ -46,6 +47,7 @@ export function TailorPanel({ jobId, busy, versions, disabled }: { jobId: number
         <CardDescription>Creates a CV PDF, a cover letter and form answers from your master CV. Each run is a new version.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
+        <p className="text-xs text-muted-foreground">New runs: {effectiveAi.provider} · {effectiveAi.model} · {effectiveAi.primary}{effectiveAi.additional ? ` + ${effectiveAi.additional}` : ""}</p>
         <div className="grid gap-1.5">
           <Label htmlFor="questions">Extra questions from the form</Label>
           <Textarea id="questions" rows={3} placeholder="One question per line" value={questions} onChange={(e) => setQuestions(e.target.value)} />
@@ -75,6 +77,7 @@ export function TailorPanel({ jobId, busy, versions, disabled }: { jobId: number
                 <a href={`/api/jobs/${jobId}/cv/${v.version}`}><DownloadIcon />CV (PDF)</a>
               </Button>
             </div>
+            <p className="break-words text-xs text-muted-foreground">{v.generation ? `${v.generation.provider} · ${v.generation.model} · ${v.generation.primary.filename} r${v.generation.primary.revision}${v.generation.additional ? ` + ${v.generation.additional.filename} r${v.generation.additional.revision}` : ""}` : "Generation details unavailable for this older version"}</p>
             <p className="rounded-md bg-warning/15 px-3 py-2 text-sm font-medium text-warning">Review before sending</p>
             <div className="grid gap-1.5">
               <div className="flex items-center justify-between"><h4 className="text-sm font-semibold">Cover letter</h4><CopyButton text={v.coverLetter} label="cover letter" /></div>
