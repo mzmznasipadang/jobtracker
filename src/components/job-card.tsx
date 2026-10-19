@@ -7,11 +7,12 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { jobLabel, SalaryFitBadge, ScamBadge, ScoreBadge, STATUSES, statusLabel } from "@/components/job-status-badge";
+import { jobLabel, type CardJob, SalaryFitBadge, ScamBadge, ScoreBadge, STATUSES, statusLabel } from "@/components/job-status-badge";
 import { setStatusAction } from "@/app/app/jobs/[id]/actions";
-import type { Job, Status } from "@/lib/types";
+import type { Status } from "@/lib/types";
 
-export function JobCard({ job, busy }: { job: Job; busy: boolean }) {
+
+export function JobCard({ job, busy }: { job: CardJob; busy: boolean }) {
   const [pending, start] = useTransition();
   const { company, title } = jobLabel(job, busy);
   const move = (s: Status) =>

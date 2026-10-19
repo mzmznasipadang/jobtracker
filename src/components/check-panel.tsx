@@ -82,7 +82,7 @@ export function CheckPanel({ job, busy }: { job: Job; busy: boolean }) {
         <Button
           variant="secondary"
           className="w-fit"
-          disabled={working || !!job.extractError}
+          disabled={working || !!job.extractError || (!job.company && !job.title)}
           onClick={() => start(async () => {
             const r = await rerunChecks(job.id);
             if (!r.ok) toast.error(r.error);

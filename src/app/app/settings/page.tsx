@@ -131,7 +131,7 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent className="grid gap-3 text-sm">
           {/* Raw HTML: React blocks javascript: hrefs, which would break dragging this to the bookmarks bar. */}
-          <p dangerouslySetInnerHTML={{ __html: `<a href="${escapeAttr(bookmarkletHref(process.env.APP_URL ?? "http://localhost:3000"))}" class="inline-block rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground" draggable="true">Send to JobTracker</a>` }} />
+          <p dangerouslySetInnerHTML={{ __html: `<a href="${escapeAttr(bookmarkletHref(process.env.APP_URL || "http://localhost:3000"))}" class="inline-block rounded-md bg-primary px-3 py-2 font-medium text-primary-foreground" draggable="true">Send to JobTracker</a>` }} />
           <ol className="list-decimal space-y-1 pl-5">
             <li>Drag the button above to your bookmarks bar.</li>
             <li>Open a job posting and click the bookmark. A JobTracker tab opens with the link and text filled in; press Capture.</li>

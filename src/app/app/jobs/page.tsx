@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BusyPoller } from "@/components/busy-poller";
 import { JobCard } from "@/components/job-card";
-import { jobLabel, SalaryFitBadge, ScamBadge, ScoreBadge, StatusBadge, STATUSES, statusLabel } from "@/components/job-status-badge";
+import { jobLabel, toCardJob, SalaryFitBadge, ScamBadge, ScoreBadge, StatusBadge, STATUSES, statusLabel } from "@/components/job-status-badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -20,7 +20,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
   const status = Status.safeParse(one("status")).data;
   const source = Source.safeParse(one("source")).data;
   const all = listJobs();
-  const rows = listJobs({ status, source });
+  const rows = all.filter((j) => (!status || j.status === status) && (!source || j.source === source));
   const skipped = all.filter((j) => j.status === "skipped");
   const showSkipped = one("skipped") === "1";
   const columns = showSkipped ? [...COLUMNS, "skipped" as const] : COLUMNS;
@@ -53,7 +53,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
                     {statusLabel(s)}<span className="text-xs font-medium text-muted-foreground">{jobs.length}</span>
                   </h2>
                   <div className="grid gap-2">
-                    {jobs.map((j) => <JobCard key={j.id} job={j} busy={isBusy(j)} />)}
+                    {jobs.map((j) => <JobCard key={j.id} job={toCardJob(j)} busy={isBusy(j)} />)}
                     {jobs.length === 0 && <p className="px-1 py-3 text-xs text-muted-foreground">Nothing here.</p>}
                   </div>
                 </section>

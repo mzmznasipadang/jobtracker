@@ -5,7 +5,7 @@ import { ApplyBar } from "@/components/apply-bar";
 import { BusyPoller } from "@/components/busy-poller";
 import { CheckPanel } from "@/components/check-panel";
 import { JobAlerts } from "@/components/job-alerts";
-import { jobLabel, StatusBadge } from "@/components/job-status-badge";
+import { jobLabel, needsExtraction, StatusBadge } from "@/components/job-status-badge";
 import { TailorPanel } from "@/components/tailor-panel";
 import { Timeline } from "@/components/timeline";
 import { Badge } from "@/components/ui/badge";
@@ -17,11 +17,14 @@ import { getTailored } from "@/lib/tailor/tailor";
 export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
   await requireSession();
   const { id: raw } = await params;
-  const job = /^\d+$/.test(raw) ? getJob(Number(raw)) : null;
-  if (!job) notFound();
+  const full = /^\d+$/.test(raw) ? getJob(Number(raw)) : null;
+  if (!full) notFound();
+  const job = { ...full, rawText: null };
   const busy = isBusy(job);
   const { company, title } = jobLabel(job, busy);
   const extracted = !!(job.company || job.title);
+  // The raw text (up to ~100 KB) goes to the client only for the editor, never into the 3 s poll otherwise.
+  const rawText = needsExtraction(job, busy) ? full.rawText : null;
 
   return (
     <div className="mx-auto grid max-w-3xl gap-6">
@@ -41,7 +44,7 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
         {job.followUpDue && <p className="text-sm font-medium text-warning">Follow-up due: no reply yet.</p>}
       </header>
 
-      <JobAlerts job={job} busy={busy} />
+      <JobAlerts job={job} busy={busy} rawText={rawText} />
       <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
       <TailorPanel jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(job.id)} disabled={busy || !extracted || !!job.extractError} />
       <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} />

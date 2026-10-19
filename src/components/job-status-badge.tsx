@@ -52,3 +52,12 @@ export function jobLabel(j: Pick<Job, "company" | "title" | "url" | "extractErro
   const host = new URL(j.url).hostname.replace(/^www\./, "");
   return { company: host, title: busy && j.busy === "extracting" ? "Extracting…" : j.extractError ? "Extraction failed" : "Untitled job" };
 }
+
+// The client only gets what a card shows: no raw posting text on the board or in its 3 s poll.
+export type CardJob = Omit<Job, "rawText" | "description" | "requirements" | "niceToHave" | "matchJson" | "scamJson">;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const toCardJob = ({ rawText, description, requirements, niceToHave, matchJson, scamJson, ...card }: Job): CardJob => card;
+
+// A job that was never extracted and is not working: failed, or orphaned by a restart mid-extraction.
+export const needsExtraction = (j: Pick<Job, "company" | "title" | "extractError">, busy: boolean) =>
+  !!j.extractError || (!j.company && !j.title && !busy);
