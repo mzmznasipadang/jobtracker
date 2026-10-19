@@ -91,13 +91,14 @@ Prompt guidance is adapted from the Claude skills Victor named: `resume-tailor`,
 
 ## 5. Email (Gmail)
 
-- The app connects to Victor's Gmail with its own credentials — the Gmail connection inside Claude does not give the deployed app access. Method: see open question Q1.
+- The app connects to Victor's Gmail with its own credentials — the Gmail connection inside Claude does not give the deployed app access.
+- **Method (Victor's decision): Gmail API with OAuth**, scopes `gmail.readonly` + `gmail.send` only. Victor creates a Google Cloud project + OAuth client (web), redirect URI `https://tracking.naspadstudio.id/api/gmail/callback`, and sets the consent screen to **In production** (in Testing, refresh tokens expire after 7 days). Settings has a **Connect Gmail** button that runs the consent flow; the refresh token is stored in the DB encrypted with `APP_SECRET` from `.env`. If the token is revoked or fails, settings shows "reconnect" and sync pauses. The builder writes a short setup guide for this in the README.
 - First sync backfills 60 days; then poll every ~10 minutes.
 - **Privacy scope** (my call): only messages that come from a tracked job's company domain, a known job-board domain (LinkedIn, JobStreet, Glints, Wellfound, Kalibrr, Dealls, ATS senders like Greenhouse/Lever/Workable), mail forwarded from Victor's Outlook, or that hit the hiring keyword rules are stored or sent to Claude. Everything else is ignored and never leaves the server.
 - LinkedIn/JobStreet "new message from recruiter" notification emails count as a reply for the matched job. For each new message, try to match it to a job by sender domain, company name and subject.
 - Classify matched messages as `rejection`, `interview / assessment`, `offer`, `auto-ack` or `other`: cheap keyword rules first (English and Indonesian, e.g. "unfortunately", "other candidates", "tidak dapat melanjutkan"), Claude for anything ambiguous. Update the status automatically; Victor can override, and an override is never re-overwritten by a later sync.
 - Unmatched recruiter-looking emails go to an "Unsorted" list where Victor can link them to a job.
-- Phase 2: send email applications (tailored CV attached) via Gmail SMTP/API.
+- Phase 2: send email applications (tailored CV attached) via the Gmail API `send`.
 - **Outlook transition** (recommendation, no code): while Victor moves job-site accounts to Gmail, set Outlook to auto-forward to Gmail so replies to older applications still arrive. The matcher must look at the original sender of forwarded mail.
 
 ## 6. Auto-apply rules (phase 2)
@@ -137,7 +138,7 @@ Routes (builder may rename): `/login`, `/app` (overview), `/app/jobs` (board + t
 - Auto-apply (phase 2): global switch, dry-run switch, threshold, daily cap, per-channel toggles, feed keywords, Freelancer bid rules.
 - Public page on/off.
 - Connections: read-only status of Gmail, Claude API, Freelancer.com (configured / failing, last sync time).
-- Secrets (API keys, Gmail credentials, Freelancer token, login password hash) live in the server `.env`, not in the database or the UI.
+- Secrets (Claude API key, Google OAuth client id/secret, Freelancer token, login password hash, `APP_SECRET`) live in the server `.env`, not in the UI. The one exception is the Gmail refresh token, which arrives at runtime and is stored encrypted (§5).
 
 ## 9. Visual design
 
@@ -172,7 +173,7 @@ Routes (builder may rename): `/login`, `/app` (overview), `/app/jobs` (board + t
 - LinkedIn public job view: how often does extraction work without login?
 - JobStreet, Glints, Kalibrr, Dealls, Wellfound: does a plain server fetch return the job content, or is it client-rendered/blocked?
 
-## 13. Open questions for Victor
+## 13. Defaults taken without Victor's answer (change if wrong)
 
-- **Q1 Gmail access**: Gmail app password with IMAP/SMTP (least setup in code; needs 2-Step Verification on) — recommended — or Gmail API via a Google Cloud OAuth app?
-
+- **No import of past applications** in v1; the public page starts from zero. A CSV import can be added later.
+- **Images are built on naspad-server** (`docker compose up -d --build` after `git pull`); no Gitea Actions in v1. Victor adds the `tracking.naspadstudio.id` → web container route to cloudflared on the server.
