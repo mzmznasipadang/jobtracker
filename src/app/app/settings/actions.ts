@@ -5,6 +5,7 @@ import { ZodError } from "zod";
 import { AiError } from "@/lib/ai";
 import { requireSession } from "@/lib/auth";
 import { clearCvParseState, saveMasterCv, startCvParse } from "@/lib/cv/parse";
+import { syncInbox } from "@/lib/email/sync";
 import { saveSettings } from "@/lib/settings";
 import { MasterCv } from "@/lib/types";
 
@@ -113,5 +114,14 @@ export async function saveMasterCvAction(cv: MasterCv) {
     const parsed = MasterCv.parse(cv);
     saveMasterCv({ ...parsed, experience: parsed.experience.map((e) => ({ ...e, bullets: e.bullets.filter((b) => b.text.trim()) })) });
     return {};
+  });
+}
+
+// Capped at 200 messages per run (~30 s); the worker or another click continues the rest.
+export async function syncGmail() {
+  return guarded(async () => {
+    const r = await syncInbox();
+    revalidatePath("/app/inbox");
+    return r;
   });
 }

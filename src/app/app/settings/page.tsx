@@ -7,8 +7,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { bookmarkletHref } from "@/lib/bookmarklet";
 import { requireSession } from "@/lib/auth";
 import { getCvParseState, getMasterCv } from "@/lib/cv/parse";
-import { getSettings } from "@/lib/settings";
+import { getKv, getSettings } from "@/lib/settings";
 import { saveGeneral, savePipeline, savePreferences, saveProfile, saveSalary } from "./actions";
+import { GmailCard } from "./gmail-card";
 import { MasterCvCard } from "./master-cv-card";
 import { SectionForm } from "./section-form";
 
@@ -33,15 +34,6 @@ function Area({ label, name, hint, defaultValue }: { label: string; name: string
     </div>
   );
 }
-
-const Placeholder = ({ title }: { title: string }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle>{title}</CardTitle>
-      <CardDescription>Available after setup.</CardDescription>
-    </CardHeader>
-  </Card>
-);
 
 export default async function SettingsPage() {
   await requireSession();
@@ -123,7 +115,7 @@ export default async function SettingsPage() {
           Claude API key: <span className={keyConfigured ? "font-semibold text-success" : "font-semibold text-danger"}>{keyConfigured ? "configured" : "missing"}</span>
         </CardContent>
       </Card>
-      <Placeholder title="Gmail" />
+      <GmailCard hasToken={getKv("gmailToken") !== null} error={getKv<string>("gmailError")} lastSync={getKv<string>("gmailLastSync")} />
       <Card>
         <CardHeader>
           <CardTitle>Bookmarklet</CardTitle>
