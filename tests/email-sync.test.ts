@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { askJson } from "@/lib/ai";
+import { AiError, askJson } from "@/lib/ai";
 import { getDb, resetDb } from "@/lib/db";
 import { listMessages, type RawEmail } from "@/lib/email/gmail";
-import { syncInbox } from "@/lib/email/sync";
+import { isSyncing, syncInbox } from "@/lib/email/sync";
 import { getJob } from "@/lib/jobs";
-import { getKv, setKv } from "@/lib/settings";
+import { getKv, saveSettings, setKv } from "@/lib/settings";
 
 vi.mock("@/lib/ai", async (orig) => ({ ...(await orig<typeof import("@/lib/ai")>()), askJson: vi.fn() }));
 vi.mock("@/lib/email/gmail", () => ({ listMessages: vi.fn(), MAX_PER_RUN: 200 }));
@@ -78,11 +78,51 @@ describe("syncInbox", () => {
     expect(getJob(id)).toMatchObject({ status: "applied", firstResponseAt: "2026-10-18T08:00:00.000Z" });
   });
 
-  it("stores unmatched related mail with no job, and asks Claude when keywords are absent", async () => {
-    list.mockResolvedValue([mail({ from: "no-reply@greenhouse.io", subject: "Thanks" })]);
-    ask.mockResolvedValue({ classification: "other" });
-    expect(await syncInbox(NOW)).toEqual({ stored: 1, skipped: 0 });
-    expect(stored()).toEqual([{ id: "m1", job_id: null, classification: "other" }]);
+  it("stores unmatched mail only on a keyword hit, without calling Claude", async () => {
+    list.mockResolvedValue([
+      mail({ id: "a", from: "jobs-listings@linkedin.com", subject: "Jobs you may like" }),
+      mail({ id: "b", from: "recruiter@other.test", subject: "Interview invitation" }),
+      mail({ id: "c", from: "recruiter@other.test", subject: "Thanks for interviewing", body: "Unfortunately no" }),
+    ]);
+    expect(await syncInbox(NOW)).toEqual({ stored: 2, skipped: 1 });
+    expect(stored()).toEqual([{ id: "b", job_id: null, classification: "interview" }, { id: "c", job_id: null, classification: "other" }]);
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("keeps an email stored as 'other' when classification fails with an AiError, and carries on", async () => {
+    const id = seed();
+    list.mockResolvedValue([
+      mail({ id: "a", subject: "Hello from Acme" }),
+      mail({ id: "b", subject: "Re", body: "Unfortunately we will not be proceeding." }),
+    ]);
+    ask.mockRejectedValue(new AiError("api", "down"));
+    expect(await syncInbox(NOW)).toEqual({ stored: 2, skipped: 0 });
+    expect(stored()).toEqual([{ id: "a", job_id: id, classification: "other" }, { id: "b", job_id: id, classification: "rejection" }]);
+    expect(getKv("gmailLastSync")).toBe(NOW.toISOString());
+  });
+
+  it("does not store or classify a forwarded personal email from the owner's Outlook", async () => {
+    saveSettings({ outlookAddress: "victor@outlook.com" });
+    list.mockResolvedValue([mail({ from: "victor@outlook.com", subject: "FW: dinner", body: "From: Mom <mom@gmail.com>\nSent: Sunday" })]);
+    expect(await syncInbox(NOW)).toEqual({ stored: 0, skipped: 1 });
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("matches a forwarded recruiter rejection to its job via the original sender", async () => {
+    saveSettings({ outlookAddress: "victor@outlook.com" });
+    const id = seed();
+    list.mockResolvedValue([mail({ from: "victor@outlook.com", subject: "FW: Update", body: "From: HR <hr@acme.test>\nSent: Mon\n\nUnfortunately we will not be proceeding." })]);
+    await syncInbox(NOW);
+    expect(getJob(id)!.status).toBe("rejected");
+  });
+
+  it("marks gmailSyncing while a run is in flight and clears it afterwards", async () => {
+    let during: unknown;
+    list.mockImplementation(async () => ((during = getKv("gmailSyncing")), []));
+    await syncInbox(NOW);
+    expect(during).toMatchObject({ startedAt: expect.any(String) });
+    expect(getKv("gmailSyncing")).toBeNull();
+    expect(isSyncing()).toBe(false);
   });
 
   it("does not reprocess a message that is already stored", async () => {

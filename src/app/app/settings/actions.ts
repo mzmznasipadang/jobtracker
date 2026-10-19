@@ -117,11 +117,12 @@ export async function saveMasterCvAction(cv: MasterCv) {
   });
 }
 
-// Capped at 200 messages per run (~30 s); the worker or another click continues the rest.
+// Not awaited (Cloudflare cuts requests at ~100 s; classification calls Claude). The card polls gmailSyncing.
 export async function syncGmail() {
-  return guarded(async () => {
-    const r = await syncInbox();
-    revalidatePath("/app/inbox");
-    return r;
+  return guarded(() => {
+    syncInbox()
+      .then(() => revalidatePath("/app/inbox"))
+      .catch((e) => console.error("Gmail sync failed:", e instanceof Error ? e.message : e));
+    return {};
   });
 }

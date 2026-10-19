@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { bookmarkletHref } from "@/lib/bookmarklet";
 import { requireSession } from "@/lib/auth";
 import { getCvParseState, getMasterCv } from "@/lib/cv/parse";
+import { isSyncing } from "@/lib/email/sync";
 import { getKv, getSettings } from "@/lib/settings";
 import { saveGeneral, savePipeline, savePreferences, saveProfile, saveSalary } from "./actions";
 import { GmailCard } from "./gmail-card";
@@ -115,7 +116,7 @@ export default async function SettingsPage() {
           Claude API key: <span className={keyConfigured ? "font-semibold text-success" : "font-semibold text-danger"}>{keyConfigured ? "configured" : "missing"}</span>
         </CardContent>
       </Card>
-      <GmailCard hasToken={getKv("gmailToken") !== null} error={getKv<string>("gmailError")} lastSync={getKv<string>("gmailLastSync")} />
+      <GmailCard hasToken={getKv("gmailToken") !== null} error={getKv<string>("gmailError")} lastSync={getKv<string>("gmailLastSync")} syncing={isSyncing()} />
       <Card>
         <CardHeader>
           <CardTitle>Bookmarklet</CardTitle>

@@ -1,8 +1,9 @@
+import { AiError } from "../ai";
 import { getDb } from "../db";
 import { addEvent, listJobs, setStatus } from "../jobs";
 import { getKv, getSettings, setKv } from "../settings";
 import type { Status } from "../types";
-import { classifyEmail, type Classification } from "./classify";
+import { classifyEmail, emailText, keywordClassify, type Classification } from "./classify";
 import { listMessages, MAX_PER_RUN } from "./gmail";
 import { isJobRelated, matchJob, originalSender } from "./match";
 
@@ -54,20 +55,35 @@ async function run(now: Date): Promise<{ stored: number; skipped: number }> {
     return result;
   }
 
-  const outlook = getSettings().outlookAddress;
+  const { outlookAddress: outlook, profile } = getSettings();
+  const owner = profile.email;
   const known = getDb().prepare("SELECT 1 FROM emails WHERE id = ?");
   const insert = getDb().prepare(`INSERT INTO emails (id, thread_id, from_addr, original_from, subject, snippet, received_at, classification, job_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`);
   for (const email of messages) {
     if (known.get(email.id)) continue;
-    const jobId = matchJob(email, listJobs(), outlook);
-    // Privacy: unrelated mail is neither stored nor sent to Claude.
-    if (!isJobRelated(email, jobId, outlook)) {
+    const jobId = matchJob(email, listJobs(), outlook, owner);
+    // Privacy: unrelated mail is neither stored nor sent to Claude, and Claude only ever sees mail matched to a job.
+    if (!isJobRelated(email, jobId, outlook, owner)) {
       result.skipped++;
       continue;
     }
-    const classification = await classifyEmail(email);
-    const stored: StoredEmail = { id: email.id, original_from: originalSender(email, outlook), subject: email.subject, snippet: email.snippet, received_at: email.receivedAt, classification };
+    let classification: Classification;
+    if (jobId === null) {
+      const k = keywordClassify(emailText(email));
+      if (k === null) {
+        result.skipped++; // e.g. a job-board digest: sender alone is not enough to keep it
+        continue;
+      }
+      classification = k === "ambiguous" ? "other" : k;
+    } else {
+      // An AI failure must not block the whole sync; the mail is kept as "other" and stays linked to its job.
+      classification = await classifyEmail(email).catch((e) => {
+        if (!(e instanceof AiError)) throw e;
+        return "other" as const;
+      });
+    }
+    const stored: StoredEmail = { id: email.id, original_from: originalSender(email, outlook, owner), subject: email.subject, snippet: email.snippet, received_at: email.receivedAt, classification };
     getDb().transaction(() => {
       insert.run(email.id, email.threadId, email.from, stored.original_from, email.subject, email.snippet, email.receivedAt, classification, jobId);
       if (jobId !== null) applyEmail(jobId, stored);
@@ -82,7 +98,21 @@ async function run(now: Date): Promise<{ stored: number; skipped: number }> {
 }
 
 // One run at a time: a manual "Sync now" overlapping the worker would double-process messages.
+// gmailSyncing lets the UI show progress; a marker older than SYNC_STALE_MS is an orphan from a dead process.
+export const SYNC_STALE_MS = 15 * 60_000;
+export const isSyncing = () => {
+  const m = getKv<{ startedAt: string }>("gmailSyncing");
+  return !!m && Date.now() - Date.parse(m.startedAt) < SYNC_STALE_MS;
+};
+
 let inflight: ReturnType<typeof run> | null = null;
 export function syncInbox(now = new Date()): ReturnType<typeof run> {
-  return (inflight ??= run(now).finally(() => (inflight = null)));
+  if (!inflight) {
+    setKv("gmailSyncing", { startedAt: new Date().toISOString() });
+    inflight = run(now).finally(() => {
+      inflight = null;
+      setKv("gmailSyncing", null);
+    });
+  }
+  return inflight;
 }

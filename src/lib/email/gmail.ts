@@ -43,15 +43,19 @@ function plainText(p: gmail_v1.Schema$MessagePart | undefined): string | null {
   return null;
 }
 
-const toRaw = (m: gmail_v1.Schema$Message): RawEmail => ({
-  id: m.id!,
-  threadId: m.threadId ?? "",
-  from: header(m.payload, "from"),
-  subject: header(m.payload, "subject"),
-  snippet: m.snippet ?? "",
-  body: (plainText(m.payload) ?? "").slice(0, BODY_CAP),
-  receivedAt: new Date(Number(m.internalDate)).toISOString(),
-});
+const toRaw = (m: gmail_v1.Schema$Message): RawEmail | null => {
+  const ms = Number(m.internalDate);
+  if (!m.id || !m.internalDate || !Number.isFinite(ms)) return null; // unusable date: skip rather than fail the whole sync
+  return {
+    id: m.id,
+    threadId: m.threadId ?? "",
+    from: header(m.payload, "from"),
+    subject: header(m.payload, "subject"),
+    snippet: m.snippet ?? "",
+    body: (plainText(m.payload) ?? "").slice(0, BODY_CAP),
+    receivedAt: new Date(ms).toISOString(),
+  };
+};
 
 // Oldest first, at most `limit` messages, so a capped run can resume from its last message.
 // -from:me keeps the user's own replies out (they would otherwise hit the keyword rules).
@@ -74,7 +78,7 @@ export async function listMessages(sinceEpochSec: number, limit = MAX_PER_RUN): 
   const out: RawEmail[] = [];
   for (let i = 0; i < wanted.length; i += 10) {
     const chunk = await Promise.all(wanted.slice(i, i + 10).map((id) => messages.get({ userId: "me", id, format: "full" })));
-    out.push(...chunk.map((r) => toRaw(r.data)));
+    out.push(...chunk.map((r) => toRaw(r.data)).filter((e) => e !== null));
   }
   return out.sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
 }

@@ -1,17 +1,19 @@
 "use client";
 
 import { useTransition } from "react";
+import { BusyPoller } from "@/components/busy-poller";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { fmtDate } from "@/lib/utils";
 import { syncGmail } from "./actions";
 
-export function GmailCard({ hasToken, error, lastSync }: { hasToken: boolean; error: string | null; lastSync: string | null }) {
+export function GmailCard({ hasToken, error, lastSync, syncing }: { hasToken: boolean; error: string | null; lastSync: string | null; syncing: boolean }) {
   const [pending, start] = useTransition();
   const state = error ? "Error" : hasToken ? "Connected" : "Not connected";
   return (
     <Card>
+      <BusyPoller active={syncing} />
       <CardHeader>
         <CardTitle>Gmail</CardTitle>
         <CardDescription>Reads job-related replies and updates job statuses. Other mail is never stored or sent to Claude.</CardDescription>
@@ -26,14 +28,13 @@ export function GmailCard({ hasToken, error, lastSync }: { hasToken: boolean; er
           <a href="/api/gmail/connect">{hasToken || error ? "Reconnect" : "Connect Gmail"}</a>
         </Button>
         <Button
-          disabled={!hasToken || !!error || pending}
+          disabled={!hasToken || !!error || pending || syncing}
           onClick={() => start(async () => {
             const r = await syncGmail();
-            if (r.ok) toast.success(`Synced: ${r.stored} stored, ${r.skipped} ignored`);
-            else toast.error(r.error);
+            if (!r.ok) toast.error(r.error);
           })}
         >
-          {pending ? "Syncing…" : "Sync now"}
+          {pending || syncing ? "Syncing…" : "Sync now"}
         </Button>
       </CardFooter>
     </Card>
