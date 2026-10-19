@@ -4,7 +4,7 @@ import { askJson } from "@/lib/ai";
 import { saveMasterCv } from "@/lib/cv/parse";
 import { getAccountDb, resetDb } from "@/lib/db";
 import { saveSettings } from "@/lib/settings";
-import { TAILOR } from "@/lib/prompts";
+import { TAILOR_REQUIREMENTS } from "@/lib/prompts";
 import { cvFilename, getTailored, getTailoredPdf, tailorJob } from "@/lib/tailor/tailor";
 import type { MasterCv } from "@/lib/types";
 
@@ -36,7 +36,7 @@ describe("tailorJob", () => {
     expect(await tailorJob(getOwnerAccount(), id)).toEqual({ version: 2 });
 
     const call = ask.mock.calls[0][1];
-    expect(call).toMatchObject({ system: TAILOR, effort: "high", maxTokens: 16000 });
+    expect(call).toMatchObject({ system: expect.stringContaining(TAILOR_REQUIREMENTS), effort: "high", maxTokens: 16000 });
     expect(JSON.parse(call.content as string)).toMatchObject({ language: "id", extraQuestions: ["Notice period?"] });
 
     const [v2, v1] = getTailored(getOwnerAccount(), id);

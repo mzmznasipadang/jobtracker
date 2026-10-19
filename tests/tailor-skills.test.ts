@@ -1,0 +1,33 @@
+import {beforeEach,afterEach,expect,it,vi} from 'vitest';
+import {createAccountFixture} from './helpers/accounts';
+import {getAccountDb} from '@/lib/db';
+import {getAiConfig,saveAiSelection} from '@/lib/ai-settings';
+import {createSkill,selectSkills,updateSkill} from '@/lib/cv-skills';
+import {getTailored,tailorJob} from '@/lib/tailor/tailor';
+import {saveMasterCv} from '@/lib/cv/parse';
+vi.mock('@/lib/ai',async orig=>({...await orig<typeof import('@/lib/ai')>(),askJson:vi.fn()}));
+vi.mock('@/lib/tailor/pdf',()=>({htmlToPdf:vi.fn(async()=>Buffer.from('%PDF test'))}));
+import {askJson} from '@/lib/ai';
+let f:ReturnType<typeof createAccountFixture>;
+beforeEach(()=>{
+ f=createAccountFixture();vi.mocked(askJson).mockReset();vi.stubEnv('OPENAI_API_KEY','fake');
+ saveMasterCv(f.owner,{basics:{name:'V',email:'',phone:'',location:'',links:[]},summary:'Dev',experience:[],projects:[],education:[],skills:[],certifications:[],languages:[]});
+ getAccountDb(f.owner).prepare("INSERT INTO jobs(url,source,company,title) VALUES ('u','other','c','t')").run();
+});afterEach(()=>{f.cleanup();vi.unstubAllEnvs();});
+it('uses both skill revisions and model from start, recording private snapshots without sending bodies to browser',async()=>{
+ const extra=createSkill(f.owner,{filename:'extra.md',body:'Additional original style'});
+ let config=getAiConfig();selectSkills(f.owner,{primarySkillId:config.primarySkillId,additionalSkillId:extra.id,revision:config.revision});
+ let finish!:(v:unknown)=>void;vi.mocked(askJson).mockImplementationOnce(()=>new Promise(r=>{finish=r;}) as never);
+ const run=tailorJob(f.owner,1);
+ updateSkill(f.owner,{...extra,body:'Changed during generation'});
+ config=getAiConfig();saveAiSelection(f.owner,{provider:'openai',model:'next-model',revision:config.revision});
+ finish({summary:'Dev',experience:[],projects:[],skillIds:[],coverLetter:'Letter',answers:[]});await run;
+ const request=vi.mocked(askJson).mock.calls[0][1];expect(request.ai).toEqual({provider:'anthropic',model:'claude-opus-5-5'});
+ expect(request.system).toContain('Additional original style');expect(request.system).not.toContain('Changed during generation');
+ expect(request.system.indexOf('Hard rules')).toBeLessThan(request.system.indexOf('Additional original style'));
+ const stored=getAccountDb(f.owner).prepare('SELECT data_json FROM generation_metadata').get() as {data_json:string};
+ expect(JSON.parse(stored.data_json)).toMatchObject({provider:'anthropic',additional:{body:'Additional original style',revision:1}});
+ expect(getTailored(f.owner,1)[0].generation).toMatchObject({provider:'anthropic',additional:{filename:'extra.md',revision:1}});
+ expect(JSON.stringify(getTailored(f.owner,1))).not.toContain('Additional original style');
+ expect(getTailored(f.member,1)).toEqual([]);
+});
