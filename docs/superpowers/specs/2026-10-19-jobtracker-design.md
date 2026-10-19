@@ -143,7 +143,7 @@ Routes (builder may rename): `/login`, `/app` (overview), `/app/jobs` (board + t
 
 - Naspad Studio guideline: **Naspad Navy `#272660`** is the primary and most dominant colour; **Sky Blue `#49BCE9`** accent; Pure White `#FFFFFF`; Black `#000000`. Status colours (success/warn/danger) are the builder's call but must sit quietly next to navy.
 - Typeface: **Montserrat** (Light, Medium, SemiBold, Bold). Fallback: system sans-serif.
-- Logo: from the guideline (needs an SVG — open question Q3). Respect the guideline's clear-space and minimum-size pages.
+- Logo: `docs/brand/naspad-logo-horizontal.svg` (mark + NASPAD STUDIO wordmark) and `docs/brand/naspad-mark.svg` (mark only, for favicon/compact sidebar). The mark is an embedded PNG (~580 KB): export it to an optimised PNG/WebP at the sizes used rather than shipping the SVG as-is. The wordmark is vector paths in navy — in dark mode render it white (recolour the paths), keep the sky-blue mark. Respect the guideline's clear-space and minimum-size pages.
 - Built with **Tailwind CSS + shadcn/ui**, brand colours mapped onto shadcn's theme tokens. Light and dark themes (my call; dark uses navy-based surfaces).
 - After the UI is built, review it with the **apple-design** skill (HIG principles: clarity, hierarchy, spacing, accessibility, contrast) and fix what it finds.
 - Code follows **Ponytail**: smallest complete change, no speculative abstractions.
@@ -155,7 +155,7 @@ Routes (builder may rename): `/login`, `/app` (overview), `/app/jobs` (board + t
 - **worker** container: same image, different command. Runs the scheduled jobs (inbox sync, ghost detection, feed pulls, auto-apply queue) and anything needing headless Chromium (CV PDF rendering, form auto-submit).
 - **Database**: SQLite (WAL) on a Docker volume shared by both containers. Single user, low volume — no separate DB server. Back up by copying the file.
 - **AI**: Claude via the official `@anthropic-ai/sdk`. Default model `claude-opus-5-5` for every task; model is a setting. Rough cost on Opus 5.5: ~US$0.10–0.20 per tailored application, a fraction of a cent per email classification. Switching cheap tasks (classification, scam check) to `claude-haiku-5-5` is Victor's decision, not a default.
-- **Auth**: see open question Q2.
+- **Auth** (Victor's decision): app-level single-user password login. Password hash in `.env`, signed HTTP-only session cookie, login rate-limited. Public page and its aggregate endpoint stay open; everything under `/app` and the private API requires the session.
 - **Deploy**: `docker compose up -d` on naspad-server; cloudflared routes `tracking.naspadstudio.id` → web container. Timezone `Asia/Jakarta`.
 - **Dev process**: Claude Code session with Opus 5.5 as orchestrator; any subagents run on Sonnet or Haiku.
 
@@ -175,5 +175,4 @@ Routes (builder may rename): `/login`, `/app` (overview), `/app/jobs` (board + t
 ## 13. Open questions for Victor
 
 - **Q1 Gmail access**: Gmail app password with IMAP/SMTP (least setup in code; needs 2-Step Verification on) — recommended — or Gmail API via a Google Cloud OAuth app?
-- **Q2 Dashboard lock**: app-level password login (works on LAN too) — recommended — or Cloudflare Access in front of `/app` (no auth code, but Zero Trust setup)?
-- **Q3 Logo**: an SVG of the Naspad Studio logo (the guideline folder has PDFs only).
+
