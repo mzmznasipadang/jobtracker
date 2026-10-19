@@ -11,7 +11,9 @@
     "hash-password": "tsx scripts/hash-password.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0",
     "better-sqlite3": "13.0.3",
+    "cheerio": "1.2.0",
     "class-variance-authority": "0.7.1",
     "cn": "0.5.0",
     "lucide-react": "1.59.0",
