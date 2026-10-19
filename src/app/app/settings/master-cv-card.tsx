@@ -1,21 +1,46 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import type { CvParseState } from "@/lib/cv/parse";
 import type { MasterCv } from "@/lib/types";
-import { parseMasterCv, saveMasterCvAction } from "./actions";
+import { clearCvParse, parseMasterCv, saveMasterCvAction } from "./actions";
 
 const skillsText = (cv: MasterCv) => cv.skills.map((s) => s.name).join(", ");
 
-export function MasterCvCard({ initial }: { initial: MasterCv | null }) {
+export function MasterCvCard({ initial, parse }: { initial: MasterCv | null; parse: CvParseState | null }) {
+  const router = useRouter();
   const [cv, setCv] = useState(initial);
   const [skills, setSkills] = useState(initial ? skillsText(initial) : "");
-  const [parsing, startParse] = useTransition();
+  const [starting, startParse] = useTransition();
+  const running = parse?.status === "running";
+  const handled = useRef<string | null>(null);
+
+  // The parse runs in the background: poll while it runs, load a finished result into the form
+  // (state adjusted during render, as the lint rule requires), then toast and clear it once.
+  const [loaded, setLoaded] = useState<string | null>(null);
+  if (parse?.status === "done" && parse.startedAt !== loaded) {
+    setLoaded(parse.startedAt);
+    setCv(parse.result);
+    setSkills(skillsText(parse.result));
+  }
+  useEffect(() => {
+    if (running) {
+      const t = setInterval(() => router.refresh(), 3000);
+      return () => clearInterval(t);
+    }
+    if (!parse || handled.current === parse.startedAt) return;
+    handled.current = parse.startedAt;
+    if (parse.status === "done") toast.success("CV parsed. Review it below, then save.");
+    else toast.error(parse.error);
+    void clearCvParse();
+  }, [parse, running, router]);
   const [saving, startSave] = useTransition();
 
   const setBullet = (ei: number, bi: number, text: string) =>
@@ -50,10 +75,8 @@ export function MasterCvCard({ initial }: { initial: MasterCv | null }) {
             startParse(async () => {
               const r = await parseMasterCv(data);
               if (!r.ok) return void toast.error(r.error);
-              setCv(r.cv);
-              setSkills(skillsText(r.cv));
               form.reset();
-              toast.success("CV parsed. Review it below, then save.");
+              router.refresh();
             });
           }}
         >
@@ -65,9 +88,10 @@ export function MasterCvCard({ initial }: { initial: MasterCv | null }) {
             <Label htmlFor="text">Or paste CV text</Label>
             <Textarea id="text" name="text" rows={4} />
           </div>
-          <Button type="submit" variant="secondary" disabled={parsing} className="w-fit">
-            {parsing ? "Parsing…" : cv ? "Parse and replace" : "Parse CV"}
+          <Button type="submit" variant="secondary" disabled={starting || running} className="w-fit">
+            {starting || running ? "Parsing…" : cv ? "Parse and replace" : "Parse CV"}
           </Button>
+          {running && <p role="status" className="text-sm text-muted-foreground">Claude is reading your CV. This can take a minute; you can keep this page open.</p>}
         </form>
 
         {cv && (

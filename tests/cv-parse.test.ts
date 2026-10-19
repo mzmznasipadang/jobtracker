@@ -1,10 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetDb } from "@/lib/db";
-import { getMasterCv, parseCv, saveMasterCv } from "@/lib/cv/parse";
+import { AiError } from "@/lib/ai";
+import { clearCvParseState, getCvParseState, getMasterCv, parseCv, saveMasterCv, startCvParse } from "@/lib/cv/parse";
+import { setKv } from "@/lib/settings";
 import type { MasterCv } from "@/lib/types";
 
 const askJson = vi.hoisted(() => vi.fn());
-vi.mock("@/lib/ai", () => ({ askJson }));
+vi.mock("@/lib/ai", async (orig) => ({ ...(await orig<typeof import("@/lib/ai")>()), askJson }));
 
 const exp = (company: string, ...bullets: string[]) => ({
   id: "e1", company, title: "Dev", start: "2020-01", end: null, location: null,
@@ -55,5 +57,36 @@ describe("master CV storage", () => {
   it("rejects an invalid CV", () => {
     expect(() => saveMasterCv({ summary: 1 } as unknown as MasterCv)).toThrow();
     expect(getMasterCv()).toBeNull();
+  });
+});
+
+describe("background parse", () => {
+  it("stores the renumbered CV as done", async () => {
+    let release!: (v: MasterCv) => void;
+    askJson.mockReturnValue(new Promise((r) => (release = r)));
+    const run = startCvParse({ text: "x" });
+    expect(getCvParseState()?.status).toBe("running");
+    release(cv({ experience: [exp("Acme", "one"), exp("Beta", "two")] }));
+    await run;
+    const s = getCvParseState();
+    expect(s?.status).toBe("done");
+    expect(s?.status === "done" && s.result.experience.map((e) => e.id)).toEqual(["exp-1", "exp-2"]);
+    clearCvParseState();
+    expect(getCvParseState()).toBeNull();
+  });
+
+  it("stores an AiError code as error", async () => {
+    askJson.mockRejectedValue(new AiError("refusal", "declined"));
+    await startCvParse({ text: "x" });
+    expect(getCvParseState()).toMatchObject({ status: "error", error: "AI error (refusal): declined" });
+  });
+
+  it("refuses a second start while running, but not once the run is stale", () => {
+    askJson.mockReturnValue(new Promise(() => {}));
+    void startCvParse({ text: "x" });
+    expect(() => startCvParse({ text: "y" })).toThrow("already running");
+    setKv("cvParse", { status: "running", startedAt: new Date(Date.now() - 16 * 60_000).toISOString() });
+    expect(getCvParseState()).toBeNull();
+    expect(() => void startCvParse({ text: "z" })).not.toThrow();
   });
 });

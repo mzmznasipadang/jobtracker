@@ -1,4 +1,5 @@
-import { askJson } from "../ai";
+import { AiError, askJson } from "../ai";
+import { getDb } from "../db";
 import { PARSE_CV } from "../prompts";
 import { getKv, setKv } from "../settings";
 import { MasterCv } from "../types";
@@ -35,4 +36,39 @@ export function getMasterCv(): MasterCv | null {
 
 export function saveMasterCv(cv: MasterCv): void {
   setKv("masterCv", MasterCv.parse(cv));
+}
+
+// Background parse (Cloudflare cuts requests at ~100 s): the state lives in kv and the settings page polls it.
+export type CvParseState =
+  | { status: "running"; startedAt: string }
+  | { status: "done"; result: MasterCv; startedAt: string }
+  | { status: "error"; error: string; startedAt: string };
+
+const PARSE_KEY = "cvParse";
+const PARSE_STALE_MS = 15 * 60 * 1000;
+
+// A run older than PARSE_STALE_MS is presumed orphaned (e.g. server restart) and reads as absent.
+export function getCvParseState(): CvParseState | null {
+  const s = getKv<CvParseState>(PARSE_KEY);
+  return !s || (s.status === "running" && Date.now() - Date.parse(s.startedAt) > PARSE_STALE_MS) ? null : s;
+}
+
+export const clearCvParseState = () => void getDb().prepare("DELETE FROM kv WHERE key = ?").run(PARSE_KEY);
+
+// Throws synchronously if a parse is already running. The returned promise never rejects.
+export function startCvParse(input: { pdf: Buffer } | { text: string }): Promise<void> {
+  if (getCvParseState()?.status === "running") throw new Error("A CV parse is already running");
+  const startedAt = new Date().toISOString();
+  setKv(PARSE_KEY, { status: "running", startedAt });
+  // Only the run that still owns the state may write its outcome.
+  const finish = (state: CvParseState) => {
+    if (getKv<CvParseState>(PARSE_KEY)?.startedAt === startedAt) setKv(PARSE_KEY, state);
+  };
+  return parseCv(input).then(
+    (result) => finish({ status: "done", result, startedAt }),
+    (e) => {
+      if (!(e instanceof AiError)) console.error(e);
+      finish({ status: "error", error: e instanceof AiError ? `AI error (${e.code}): ${e.message}` : "Parsing failed", startedAt });
+    },
+  ).catch(console.error);
 }

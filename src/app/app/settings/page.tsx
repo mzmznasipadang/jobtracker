@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { requireSession } from "@/lib/auth";
-import { getMasterCv } from "@/lib/cv/parse";
+import { getCvParseState, getMasterCv } from "@/lib/cv/parse";
 import { getSettings } from "@/lib/settings";
 import { saveGeneral, savePipeline, savePreferences, saveProfile, saveSalary } from "./actions";
 import { MasterCvCard } from "./master-cv-card";
@@ -58,7 +58,7 @@ export default async function SettingsPage() {
         <Area label="Links" name="links" hint="One per line: LinkedIn, GitHub, portfolio." defaultValue={lines(s.profile.links)} />
       </SectionForm>
 
-      <MasterCvCard initial={cv} />
+      <MasterCvCard initial={cv} parse={getCvParseState()} />
 
       <SectionForm action={savePreferences} title="Preferences" description="What you are looking for. One item per line.">
         <Area label="Target roles" name="targetRoles" hint="One per line." defaultValue={lines(s.preferences.targetRoles)} />

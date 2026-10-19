@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ZodError } from "zod";
 import { AiError } from "@/lib/ai";
 import { requireSession } from "@/lib/auth";
-import { parseCv, saveMasterCv } from "@/lib/cv/parse";
+import { clearCvParseState, saveMasterCv, startCvParse } from "@/lib/cv/parse";
 import { saveSettings } from "@/lib/settings";
 import { MasterCv } from "@/lib/types";
 
@@ -84,16 +84,28 @@ export const saveGeneral = async (f: FormData) =>
 export async function parseMasterCv(f: FormData) {
   return guarded(async () => {
     const file = f.get("pdf");
+    let input: Parameters<typeof startCvParse>[0];
     if (file instanceof File && file.size > 0) {
       if (file.size > MAX_PDF) throw new UserError("PDF is larger than 10 MB");
       const pdf = Buffer.from(await file.arrayBuffer());
       if (pdf.subarray(0, 5).toString() !== "%PDF-") throw new UserError("File is not a PDF");
-      return { cv: await parseCv({ pdf }) };
+      input = { pdf };
+    } else {
+      const text = str(f, "text");
+      if (!text) throw new UserError("Upload a PDF or paste your CV text");
+      input = { text };
     }
-    const text = str(f, "text");
-    if (!text) throw new UserError("Upload a PDF or paste your CV text");
-    return { cv: await parseCv({ text }) };
+    try {
+      void startCvParse(input); // deliberately not awaited
+    } catch (e) {
+      throw new UserError((e as Error).message);
+    }
+    return {};
   });
+}
+
+export async function clearCvParse() {
+  return guarded(() => (clearCvParseState(), {}));
 }
 
 export async function saveMasterCvAction(cv: MasterCv) {
