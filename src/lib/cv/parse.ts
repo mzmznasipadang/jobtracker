@@ -1,5 +1,6 @@
+import type { AiSelection } from "../ai-settings";
 import type { Account } from "../accounts";
-import { AiError, askJson } from "../ai";
+import { AiError, askJson, snapshotAi } from "../ai";
 import { getAccountDb } from "../db";
 import { PARSE_CV } from "../prompts";
 import { getKv, setKv } from "../settings";
@@ -19,7 +20,7 @@ function renumber(cv: MasterCv): MasterCv {
   };
 }
 
-export async function parseCv(account: Account, input: { pdf: Buffer } | { text: string }): Promise<MasterCv> {
+export async function parseCv(account: Account, input: { pdf: Buffer } | { text: string }, ai: AiSelection = snapshotAi()): Promise<MasterCv> {
   const content =
     "pdf" in input
       ? [
@@ -27,7 +28,7 @@ export async function parseCv(account: Account, input: { pdf: Buffer } | { text:
           { type: "text" as const, text: "Convert this CV." },
         ]
       : input.text;
-  return renumber(await askJson(account, { schema: MasterCv, system: PARSE_CV, content, effort: "medium" }));
+  return renumber(await askJson(account, { ai, schema: MasterCv, system: PARSE_CV, content, effort: "medium" }));
 }
 
 export function getMasterCv(account: Account): MasterCv | null {

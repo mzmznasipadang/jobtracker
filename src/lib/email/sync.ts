@@ -1,6 +1,7 @@
+import type { AiSelection } from "../ai-settings";
 import type { Account } from "../accounts";
 import { randomUUID } from "node:crypto";
-import { AiError } from "../ai";
+import { AiError, snapshotAi } from "../ai";
 import { getAccountDb } from "../db";
 import { addEvent, listJobs, setStatus } from "../jobs";
 import { getKv, getSettings, setKv } from "../settings";
@@ -44,7 +45,7 @@ const isAuthError = (e: unknown) => {
   return /invalid_grant/.test(x?.message ?? "") || [x?.status, x?.code, x?.response?.status].includes(401);
 };
 
-async function run(account: Account, now: Date): Promise<{ stored: number; skipped: number }> {
+async function run(account: Account, now: Date, ai: AiSelection): Promise<{ stored: number; skipped: number }> {
   const result = { stored: 0, skipped: 0 };
   const connection = getKv(account, "gmailToken");
   if (!connection) return result;
@@ -82,7 +83,7 @@ async function run(account: Account, now: Date): Promise<{ stored: number; skipp
       classification = k === "ambiguous" ? "other" : k;
     } else {
       // An AI failure must not block the whole sync; the mail is kept as "other" and stays linked to its job.
-      classification = await classifyEmail(account, email).catch((e) => {
+      classification = await classifyEmail(account, email, ai).catch((e) => {
         if (!(e instanceof AiError)) throw e;
         return "other" as const;
       });
@@ -123,7 +124,7 @@ export function syncInbox(account: Account, now = new Date()): ReturnType<typeof
     WHERE COALESCE(json_extract(kv.value_json,'$.startedAt'),'') < ?`)
     .run(marker, new Date(Date.now() - SYNC_STALE_MS).toISOString());
   if (!claimed.changes) return Promise.resolve({ stored: 0, skipped: 0 });
-  const promise = run(account, now).finally(() => {
+  const promise = run(account, now, snapshotAi()).finally(() => {
     inflight.delete(account.id);
     db.prepare("UPDATE kv SET value_json='null' WHERE key='gmailSyncing' AND json_extract(value_json,'$.lease')=?").run(lease);
   });

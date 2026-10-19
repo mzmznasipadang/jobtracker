@@ -65,7 +65,7 @@ describe("captureJob", () => {
     await a.done;
     expect(checks).not.toHaveBeenCalled();
     await retryExtraction(getOwnerAccount(), a.id);
-    expect(checks).toHaveBeenCalledWith(getOwnerAccount(), a.id);
+    expect(checks).toHaveBeenCalledWith(getOwnerAccount(), a.id, expect.objectContaining({provider:"anthropic"}));
     checks.mockRejectedValueOnce(new AiError("api", "check down"));
     await retryExtraction(getOwnerAccount(), a.id);
     expect(getJob(getOwnerAccount(), a.id)).toMatchObject({ company: "Acme", extractError: null, busy: null, busyError: expect.stringContaining("check down") });

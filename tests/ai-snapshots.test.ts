@@ -1,0 +1,22 @@
+import {afterEach,beforeEach,expect,it,vi} from 'vitest';
+import {createAccountFixture} from './helpers/accounts';
+import {getAccountDb} from '@/lib/db';
+import {saveMasterCv} from '@/lib/cv/parse';
+import {getAiConfig,saveAiSelection} from '@/lib/ai-settings';
+import {runChecks} from '@/lib/check/run';
+import {MasterCv} from '@/lib/types';
+vi.mock('@/lib/ai',async orig=>({...await orig<typeof import('@/lib/ai')>(),askJson:vi.fn()}));
+import {askJson} from '@/lib/ai';
+let f:ReturnType<typeof createAccountFixture>;
+beforeEach(()=>{f=createAccountFixture();vi.stubEnv('OPENAI_API_KEY','fake');vi.mocked(askJson).mockReset();});
+afterEach(()=>{f.cleanup();vi.unstubAllEnvs();});
+it('keeps one provider/model across delayed match and scam calls',async()=>{
+ saveMasterCv(f.owner,MasterCv.parse({basics:{name:'V',email:'',phone:'',location:'',links:[]},summary:'',experience:[],projects:[],education:[],skills:[],certifications:[],languages:[]}));
+ getAccountDb(f.owner).prepare("INSERT INTO jobs(url,source,company,title) VALUES ('u','other','c','t')").run();
+ let finish!:(v:unknown)=>void;const gate=new Promise(r=>{finish=r;});
+ vi.mocked(askJson).mockImplementationOnce(()=>gate as never).mockResolvedValueOnce({risk:'low',reasons:[]});
+ const work=runChecks(f.owner,1);
+ saveAiSelection(f.owner,{provider:'openai',model:'next-model',revision:getAiConfig().revision});
+ finish({score:80,reasons:[],gaps:[],missingKeywords:[],dealBreakerHit:null});await work;
+ expect(vi.mocked(askJson).mock.calls.map(c=>c[1].ai)).toEqual([{provider:'anthropic',model:'claude-opus-5-5'},{provider:'anthropic',model:'claude-opus-5-5'}]);
+});

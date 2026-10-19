@@ -12,7 +12,7 @@ const stub = (res: unknown) => {
   const create = vi.fn(async () => res);
   return { client: { beta: { messages: { create } } } as unknown as Anthropic, create };
 };
-const ask = (client: Anthropic) => askJson(getOwnerAccount(), { schema, system: "sys", content: "hi" }, client);
+const ask = (client: Anthropic) => askJson(getOwnerAccount(), { schema, system: "sys", content: "hi" }, {anthropic:client});
 const reply = (text: string, stop_reason = "end_turn") => ({ stop_reason, content: [{ type: "text", text }] });
 
 describe("askJson", () => {
@@ -23,8 +23,6 @@ describe("askJson", () => {
     expect(req[0]).toMatchObject({
       model: "claude-opus-5-5",
       max_tokens: 16000,
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       output_config: { effort: "medium" },
       system: [{ type: "text", text: "sys", cache_control: { type: "ephemeral" } }],
     });

@@ -1,5 +1,6 @@
+import type { AiSelection } from "./ai-settings";
 import type { Account } from "./accounts";
-import { AiError } from "./ai";
+import { AiError, snapshotAi } from "./ai";
 import { runChecks } from "./check/run";
 import { extractJob } from "./capture/extract";
 import { fetchJobText } from "./capture/fetch";
@@ -77,10 +78,10 @@ export function startJobWork(account: Account, jobId: number, kind: Busy, work: 
   ).catch(() => {});
 }
 
-async function extractWork(account: Account, id: number): Promise<void> {
+async function extractWork(account: Account, id: number, ai: AiSelection): Promise<void> {
   const job = getJob(account, id)!;
   try {
-    const f = await extractJob(account, job.rawText ?? "", job.url);
+    const f = await extractJob(account, job.rawText ?? "", job.url, ai);
     getAccountDb(account).prepare(`UPDATE jobs SET company=?, company_domain=?, title=?, location=?, work_mode=?, employment_type=?,
       salary_min=?, salary_max=?, salary_currency=?, salary_period=?, requirements=?, nice_to_have=?, description=?,
       apply_method=?, apply_email=?, apply_url=?, recruiter_email=?, language=?, extract_error=NULL, updated_at=? WHERE id=?`)
@@ -93,15 +94,16 @@ async function extractWork(account: Account, id: number): Promise<void> {
     return; // job and raw_text are kept so retryExtraction can run later
   }
   // Not caught: a failed check surfaces as busy_error while the extracted fields stay saved.
-  await runChecks(account, id);
+  await runChecks(account, id, ai);
 }
 
 // `text` replaces the stored text first (the user edited it); written only after the job is claimed.
 export function retryExtraction(account: Account, id: number, text?: string): Promise<void> {
+  const ai = snapshotAi();
   if (text === undefined && getJob(account, id)?.rawText == null) throw new Error(`Job ${id} has no stored text to extract`);
   return startJobWork(account, id, "extracting", async () => {
     if (text !== undefined) getAccountDb(account).prepare("UPDATE jobs SET raw_text = ? WHERE id = ?").run(text, id);
-    await extractWork(account, id);
+    await extractWork(account, id, ai);
   });
 }
 
@@ -110,6 +112,7 @@ export async function captureJob(account: Account, input: { url: string; text?: 
   const existing = getAccountDb(account).prepare("SELECT id FROM jobs WHERE url = ?").get(url) as { id: number } | undefined;
   if (existing) return { id: existing.id, created: false, done: Promise.resolve() };
 
+  const ai = snapshotAi();
   let text = input.text;
   if (text === undefined) {
     const r = await fetchJobText(fetchUrlFor(url));
@@ -118,7 +121,7 @@ export async function captureJob(account: Account, input: { url: string; text?: 
   }
   // company/title are NOT NULL; extraction fills them in.
   const id = Number(getAccountDb(account).prepare("INSERT INTO jobs (url, source, company, title, raw_text) VALUES (?, ?, '', '', ?)").run(url, sourceFromUrl(url), text).lastInsertRowid);
-  return { id, created: true, done: startJobWork(account, id, "extracting", () => extractWork(account, id)) };
+  return { id, created: true, done: startJobWork(account, id, "extracting", () => extractWork(account, id, ai)) };
 }
 
 export function setStatus(account: Account, id: number, status: Status, by: "user" | "email" | "ghost", at = new Date()): void {
