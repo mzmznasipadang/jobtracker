@@ -29,7 +29,7 @@ export function TailorDraftEditor({ jobId, draft, busy }: {
     }, [dirty]);
     function change(next: DraftEdit) { setEdit(next); setReviewed(false); }
     const field = (label: string, value: string, onChange: (value: string) => void) => <div className="grid gap-2"><Label className="grid gap-2">{label}<Textarea aria-label={label} rows={4} maxLength={20000} value={value} onChange={e => onChange(e.target.value)}/></Label></div>;
-    return <section className="grid min-w-0 gap-4 rounded-lg border p-4" aria-label="Application draft">
+    return <section className="grid min-w-0 gap-4 rounded-lg border p-4" aria-label="Application draft"><fieldset className="grid min-w-0 gap-4" disabled={pending || busy}>
  <div><h3 className="font-semibold">Review your application draft</h3><p className="break-words text-xs text-muted-foreground">{draft.generation.provider} · {draft.generation.model} · {draft.generation.primary}{draft.generation.additional ? ` + ${draft.generation.additional}` : ''}</p></div>
  <p role="status" className="text-sm">{dirty ? 'Unsaved changes' : 'Draft saved'} · revision {revision}</p>
  <p className="text-sm text-muted-foreground">Review all claims for accuracy. Wording is editable; change employers, dates and other source facts in your master CV, then generate a new draft.</p>
@@ -58,5 +58,5 @@ export function TailorDraftEditor({ jobId, draft, busy }: {
         setSaved(JSON.stringify(edit));
         toast.success(`PDF version ${r.version} generated`);
     } })}>{pending ? 'Working…' : 'Generate PDF'}</Button>
- </section>;
+ </fieldset></section>;
 }
