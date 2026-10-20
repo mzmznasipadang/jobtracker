@@ -18,11 +18,11 @@ export function JobDetailsEditor({ job, busy }: {
         toast.error(r.error);
     else
         toast.success('Job details saved'); }); }}>
- <p className="text-sm text-muted-foreground">Check the company, title and full description before generating a draft. You can correct these without using AI.</p>
+ <fieldset className="grid min-w-0 gap-3" disabled={busy || pending}><p className="text-sm text-muted-foreground">Check the company, title and full description before generating a draft. You can correct these without using AI.</p>
  <Label htmlFor="job-company">Company</Label><Input id="job-company" required maxLength={300} value={company} onChange={e => setCompany(e.target.value)}/>
  <Label htmlFor="job-title">Job title</Label><Input id="job-title" required maxLength={300} value={title} onChange={e => setTitle(e.target.value)}/>
  <Label htmlFor="job-location">Location</Label><Input id="job-location" maxLength={500} value={location} onChange={e => setLocation(e.target.value)}/>
  <Label htmlFor="job-description">Description</Label><Textarea id="job-description" required rows={8} maxLength={200000} value={description} onChange={e => setDescription(e.target.value)}/>
  <Button className="w-fit" disabled={busy || pending}>Confirm job details</Button>
- </form></details>;
+ </fieldset></form></details>;
 }
