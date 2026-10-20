@@ -51,3 +51,20 @@ ${section(t.certifications, certs)}
 ${section(t.languages, cv.languages.length ? `<p>${esc(cv.languages.join(", "))}</p>` : "")}
 </body></html>`;
 }
+
+export function renderCoverLetterHtml(basics: TailoredCv['basics'], letter: string): string {
+  return `<!doctype html>
+<html><head><meta charset="utf-8"><title>${esc(basics.name)} — Cover letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+body{font-family:Montserrat,Arial,sans-serif;font-size:10pt;line-height:1.6;color:#000;margin:0}
+h1{font-size:20pt;margin:0 0 2pt;color:#272660}
+.contact{margin:2pt 0 24pt;color:#333;font-size:10pt}
+.letter{white-space:pre-wrap;overflow-wrap:anywhere;orphans:3;widows:3}
+</style></head><body>
+<h1>${esc(basics.name)}</h1>
+<p class="contact">${line(basics.email, basics.phone, basics.location, ...basics.links)}</p>
+<div class="letter">${esc(letter)}</div>
+</body></html>`;
+}

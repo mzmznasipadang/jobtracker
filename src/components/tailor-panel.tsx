@@ -46,7 +46,7 @@ export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, d
     return (<Card>
       <CardHeader>
         <CardTitle>Tailor</CardTitle>
-        <CardDescription>Generate a draft, review and edit it, then create your CV PDF. Existing PDF versions stay available.</CardDescription>
+        <CardDescription>Generate a draft, review and edit it, then download your CV and cover letter PDFs. Existing PDF versions stay available.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         <p className="text-xs text-muted-foreground">New runs: {effectiveAi.provider} · {effectiveAi.model} · {effectiveAi.primary}{effectiveAi.additional ? ` + ${effectiveAi.additional}` : ""}</p>
@@ -74,9 +74,14 @@ export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, d
         {versions.map((v, i) => (<section key={v.version} className="grid gap-3 rounded-lg border p-4" aria-label={`Version ${v.version}`}>
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">Version {v.version}{i === 0 ? " (latest)" : ""} <span className="font-normal text-muted-foreground">· {fmtDate(v.createdAt)}</span></h3>
-              <Button asChild variant="secondary" size="sm">
-                <a href={`/api/jobs/${jobId}/cv/${v.version}`}><DownloadIcon />CV (PDF)</a>
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button asChild variant="secondary" size="sm">
+                  <a href={`/api/jobs/${jobId}/cv/${v.version}`}><DownloadIcon />CV (PDF)</a>
+                </Button>
+                {v.coverLetter.trim() && <Button asChild variant="secondary" size="sm">
+                  <a href={`/api/jobs/${jobId}/cover-letter/${v.version}`}><DownloadIcon />Cover letter (PDF)</a>
+                </Button>}
+              </div>
             </div>
             <p className="break-words text-xs text-muted-foreground">{v.generation ? `${v.generation.provider} · ${v.generation.model} · ${v.generation.primary.filename} r${v.generation.primary.revision}${v.generation.additional ? ` + ${v.generation.additional.filename} r${v.generation.additional.revision}` : ""}` : "Generation details unavailable for this older version"}</p>
             <p className="rounded-md bg-warning/15 px-3 py-2 text-sm font-medium text-warning">Review before sending</p>
