@@ -1,0 +1,27 @@
+import Database from 'better-sqlite3';
+import { afterEach, expect, it } from 'vitest';
+import { createAccountFixture } from './helpers/accounts';
+import { SCHEMA } from '@/lib/schema';
+import { accountDbPath, getRegistry, resetAccounts } from '@/lib/accounts';
+import { getAccountDb, resetDb } from '@/lib/db';
+import { createSession, lookupSession } from '@/lib/sessions';
+let f: ReturnType<typeof createAccountFixture>;
+afterEach(() => f?.cleanup());
+it('upgrades deployed v2 stores once, keeping sessions and PDFs unchanged', () => {
+    f = createAccountFixture();
+    const token = createSession(f.member), legacy = new Database(accountDbPath(f.owner));
+    legacy.exec(SCHEMA);
+    legacy.exec('CREATE TABLE generation_metadata(job_id INTEGER,version INTEGER,data_json TEXT,PRIMARY KEY(job_id,version)); PRAGMA user_version=2;');
+    legacy.prepare("INSERT INTO jobs(url,source,company,title) VALUES('u','other','c','t')").run();
+    legacy.prepare("INSERT INTO tailored(job_id,version,cv_json,pdf) VALUES(1,1,'{}',?)").run(Buffer.from('%PDF legacy'));
+    legacy.close();
+    getRegistry().exec('DROP TABLE ai_usage; DROP TABLE ai_usage_policies; DROP TABLE ai_model_pricing; PRAGMA user_version=2');
+    resetAccounts();
+    expect(lookupSession(token)).toEqual(f.member);
+    expect(getRegistry().pragma('user_version', { simple: true })).toBe(3);
+    const db = getAccountDb(f.owner);
+    expect(db.pragma('user_version', { simple: true })).toBe(3);
+    expect(db.prepare('SELECT pdf,draft_id FROM tailored').get()).toEqual({ pdf: Buffer.from('%PDF legacy'), draft_id: null });
+    resetDb();
+    expect(getAccountDb(f.owner).prepare('SELECT count(*) n FROM tailor_drafts').get()).toEqual({ n: 0 });
+});

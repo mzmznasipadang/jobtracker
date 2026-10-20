@@ -1,9 +1,9 @@
-import {isExpired} from "@/lib/archive";
-import {ArchiveControls} from "@/components/archive-controls";
-import {getDraft} from "@/lib/tailor/drafts";
-import {getMasterCv} from "@/lib/cv/parse";
-import {getTailorReadiness} from "@/lib/job-readiness";
-import {JobDetailsEditor} from "@/components/job-details-editor";
+import { isExpired } from "@/lib/archive";
+import { ArchiveControls } from "@/components/archive-controls";
+import { getDraft } from "@/lib/tailor/drafts";
+import { getMasterCv } from "@/lib/cv/parse";
+import { getTailorReadiness } from "@/lib/job-readiness";
+import { JobDetailsEditor } from "@/components/job-details-editor";
 import { getEffectiveAiSummary } from "@/lib/cv-skills";
 import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
@@ -20,50 +20,47 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireSession } from "@/lib/auth";
 import { getJob, isBusy, listEvents } from "@/lib/jobs";
 import { getTailored } from "@/lib/tailor/tailor";
-
 export default async function JobPage({ params, searchParams }: PageProps<"/app/jobs/[id]">) {
-  const account = await requireSession();
-  const { id: raw } = await params;
-  const full = /^\d+$/.test(raw) ? getJob(account, Number(raw)) : null;
-  if (!full || isExpired(full)) notFound();
-  const job = { ...full, rawText: null };
-  const busy = isBusy(job);
-  const { company, title } = jobLabel(job, busy);
-  const readiness = getTailorReadiness(job,!!getMasterCv(account));
-  // The raw text (up to ~100 KB) goes to the client only for the editor, never into the 3 s poll otherwise.
-  const rawText = needsExtraction(job, busy) ? full.rawText : null;
-
-  return (
-    <div className="mx-auto grid max-w-3xl gap-6">
+    const account = await requireSession();
+    const { id: raw } = await params;
+    const full = /^\d+$/.test(raw) ? getJob(account, Number(raw)) : null;
+    if (!full || isExpired(full))
+        notFound();
+    const job = { ...full, rawText: null };
+    const busy = isBusy(job);
+    const { company, title } = jobLabel(job, busy);
+    const readiness = getTailorReadiness(job, !!getMasterCv(account));
+    // The raw text (up to ~100 KB) goes to the client only for the editor, never into the 3 s poll otherwise.
+    const rawText = needsExtraction(job, busy) ? full.rawText : null;
+    return (<div className="mx-auto grid max-w-3xl gap-6">
       {(await searchParams).duplicate === "1" && <p role="status" className="text-sm">This job is already saved. Your existing details have been kept.</p>}
-      <BusyPoller active={busy} />
+      <BusyPoller active={busy}/>
       <header className="grid gap-2">
         <Link href="/app/jobs" className="w-fit text-sm text-muted-foreground hover:underline">← Jobs</Link>
         <h1 className="text-2xl font-semibold text-primary">{title}</h1>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
           <span className="font-medium">{company}</span>
-          <StatusBadge status={job.status} />
+          <StatusBadge status={job.status}/>
           <Badge variant="outline" className="capitalize">{job.source}</Badge>
           {job.location && <span className="text-muted-foreground">{job.location}{job.workMode ? ` · ${job.workMode}` : ""}</span>}
           <a href={job.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline">
-            Open job<ExternalLinkIcon className="size-3.5" aria-hidden />
+            Open job<ExternalLinkIcon className="size-3.5" aria-hidden/>
           </a>
         </div>
         {job.followUpDue && <p className="text-sm font-medium text-warning">Follow-up due: no reply yet.</p>}
       </header>
 
-      {job.archivedAt && <p role="status" className="rounded border p-4 text-sm">Archived. Permanently deleted after {new Date(job.purgeAfter!).toLocaleString("en-GB",{timeZone:"Asia/Jakarta"})} Jakarta time.</p>}
-      {!job.archivedAt && <><JobAlerts job={job} busy={busy} rawText={rawText} />
-      <JobDetailsEditor key={job.updatedAt} job={job} busy={busy} />
-      <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
+      {job.archivedAt && <p role="status" className="rounded border p-4 text-sm">Archived. Permanently deleted after {new Date(job.purgeAfter!).toLocaleString("en-GB", { timeZone: "Asia/Jakarta" })} Jakarta time.</p>}
+      {!job.archivedAt && <><JobAlerts job={job} busy={busy} rawText={rawText}/>
+      <JobDetailsEditor key={job.updatedAt} job={job} busy={busy}/>
+      <CheckPanel job={job} busy={busy && job.busy !== "tailoring"}/>
       </>}
-      <TailorPanel draft={job.archivedAt?null:getDraft(account,job.id)} effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={!readiness.ready} disabledReason={readiness.reason} />
+      <TailorPanel draft={job.archivedAt ? null : getDraft(account, job.id)} effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={!readiness.ready} disabledReason={readiness.reason}/>
       <ArchiveControls jobId={job.id} archived={!!job.archivedAt} busy={busy}/>
-      {!job.archivedAt && <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />}
+      {!job.archivedAt && <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue}/>}
       <Card>
         <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
-        <CardContent><Timeline events={listEvents(account, job.id)} /></CardContent>
+        <CardContent><Timeline events={listEvents(account, job.id)}/></CardContent>
       </Card>
-    </div>
-  );
+    </div>);
 }

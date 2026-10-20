@@ -1,9 +1,29 @@
 "use client";
-import {useState,useTransition} from 'react';import {useRouter} from 'next/navigation';import {toast} from 'sonner';import {Button} from '@/components/ui/button';import {archiveJobAction,restoreJobAction,deleteJobAction} from '@/app/app/jobs/[id]/actions';
-export function ArchiveControls({jobId,archived,busy}:{jobId:number;archived:boolean;busy:boolean}) {
- const [confirm,setConfirm]=useState<'archive'|'delete'|null>(null),[pending,start]=useTransition(),router=useRouter();
- const act=(action:()=>Promise<{ok:true}|{ok:false;error:string}>)=>start(async()=>{const r=await action();if(!r.ok)toast.error(r.error);else{setConfirm(null);router.replace('/app/jobs');router.refresh();}});
- return <section className="grid gap-3 rounded-lg border p-4" aria-label="Archive controls">
- {confirm?<><p className="text-sm">{confirm==='delete'?'Permanently delete this job, notes and all generated files? This cannot be undone. Gmail messages stay in Gmail.':`Archive this job? You can restore it for 30 days. After ${new Date(Date.now()+30*86400000).toLocaleString('en-GB',{timeZone:'Asia/Jakarta'})} Jakarta time it will be permanently deleted, including notes and generated files.`}</p><div className="flex flex-wrap gap-2"><Button disabled={pending||busy} variant={confirm==='delete'?'destructive':'default'} onClick={()=>act(()=>confirm==='delete'?deleteJobAction(jobId):archiveJobAction(jobId))}>{confirm==='delete'?'Delete permanently':'Confirm archive'}</Button><Button variant="outline" disabled={pending} onClick={()=>setConfirm(null)}>Cancel</Button></div></>:<div className="flex flex-wrap gap-2"><Button disabled={pending||busy} variant="outline" onClick={()=>archived?act(()=>restoreJobAction(jobId)):setConfirm('archive')}>{archived?'Restore job':'Archive job'}</Button>{archived&&<Button variant="destructive" disabled={pending} onClick={()=>setConfirm('delete')}>Delete permanently</Button>}</div>}
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { archiveJobAction, restoreJobAction, deleteJobAction } from '@/app/app/jobs/[id]/actions';
+export function ArchiveControls({ jobId, archived, busy }: {
+    jobId: number;
+    archived: boolean;
+    busy: boolean;
+}) {
+    const [deadline, setDeadline] = useState("");
+    const [confirm, setConfirm] = useState<'archive' | 'delete' | null>(null), [pending, start] = useTransition(), router = useRouter();
+    const act = (action: () => Promise<{
+        ok: true;
+    } | {
+        ok: false;
+        error: string;
+    }>) => start(async () => { const r = await action(); if (!r.ok)
+        toast.error(r.error);
+    else {
+        setConfirm(null);
+        router.replace('/app/jobs');
+        router.refresh();
+    } });
+    return <section className="grid gap-3 rounded-lg border p-4" aria-label="Archive controls">
+ {confirm ? <><p className="text-sm">{confirm === 'delete' ? 'Permanently delete this job, notes and all generated files? This cannot be undone. Gmail messages stay in Gmail.' : `Archive this job? You can restore it for 30 days. After ${deadline} Jakarta time it will be permanently deleted, including notes and generated files.`}</p><div className="flex flex-wrap gap-2"><Button disabled={pending || busy} variant={confirm === 'delete' ? 'destructive' : 'default'} onClick={() => act(() => confirm === 'delete' ? deleteJobAction(jobId) : archiveJobAction(jobId))}>{confirm === 'delete' ? 'Delete permanently' : 'Confirm archive'}</Button><Button variant="outline" disabled={pending} onClick={() => setConfirm(null)}>Cancel</Button></div></> : <div className="flex flex-wrap gap-2"><Button disabled={pending || busy} variant="outline" onClick={() => archived ? act(() => restoreJobAction(jobId)) : (setDeadline(new Date(Date.now() + 30 * 86400000).toLocaleString('en-GB', { timeZone: 'Asia/Jakarta' })), setConfirm('archive'))}>{archived ? 'Restore job' : 'Archive job'}</Button>{archived && <Button variant="destructive" disabled={pending} onClick={() => setConfirm('delete')}>Delete permanently</Button>}</div>}
  </section>;
 }

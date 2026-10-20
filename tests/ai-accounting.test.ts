@@ -1,0 +1,22 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { z } from 'zod';
+import type OpenAI from 'openai';
+import { createAccountFixture } from './helpers/accounts';
+import { askJson } from '@/lib/ai';
+import { getUsageSummary, saveUsagePolicy } from '@/lib/ai-usage';
+let f: ReturnType<typeof createAccountFixture>;
+beforeEach(() => { f = createAccountFixture(); });
+afterEach(() => f.cleanup());
+it('accounts for invalid billable output without retries and unknown tokens are not zero', async () => {
+    const create = vi.fn().mockResolvedValue({ status: 'completed', output_text: 'bad json', output: [], usage: { input_tokens: 20, input_tokens_details: { cached_tokens: 5, cache_write_tokens: 2 }, output_tokens: 4 } }), client = { responses: { create } } as unknown as OpenAI;
+    await expect(askJson(f.member, { operation: 'extract', ai: { provider: 'openai', model: 'test' }, schema: z.object({ n: z.number() }), system: 'rules', content: 'private CV' }, { openai: client })).rejects.toMatchObject({ code: 'unparseable' });
+    const summary = getUsageSummary(f.member);
+    expect(summary.used).toBe(1);
+    expect(summary.rows[0]).toMatchObject({ state: 'failed', usage: { normalInput: 13, cachedInput: 5, cacheWrite: 2, output: 4 } });
+    expect(summary.costCoverage).toBe(0);
+    expect(JSON.stringify(summary)).not.toContain('private CV');
+    expect(create.mock.calls[0][1]).toEqual({ maxRetries: 0 });
+    saveUsagePolicy(f.owner, { scope: 'account', accountId: f.member.id, limit: 1, inherit: false, paused: false, revision: 0 });
+    await expect(askJson(f.member, { operation: 'match', ai: { provider: 'openai', model: 'test' }, schema: z.object({}), system: '', content: '' }, { openai: client })).rejects.toMatchObject({ code: 'policy' });
+    expect(create).toHaveBeenCalledTimes(1);
+});

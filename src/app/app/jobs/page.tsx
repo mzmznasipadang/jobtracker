@@ -1,3 +1,4 @@
+import { isExpired } from "@/lib/archive";
 import Link from "next/link";
 import { BusyPoller } from "@/components/busy-poller";
 import { JobCard } from "@/components/job-card";
@@ -10,27 +11,23 @@ import { requireSession } from "@/lib/auth";
 import { isBusy, listJobs } from "@/lib/jobs";
 import { Source, Status } from "@/lib/types";
 import { fmtDate } from "@/lib/utils";
-
 const COLUMNS = STATUSES.filter((s) => s !== "skipped");
-
 export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">) {
-  const account = await requireSession();
-  const sp = await searchParams;
-  const one = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : sp[k]);
-  const status = Status.safeParse(one("status")).data;
-  const source = Source.safeParse(one("source")).data;
-  const archived = one("archived") === "1";
-  const all = listJobs(account).filter(j=>archived ? !!j.archivedAt&&!!j.purgeAfter&&Date.parse(j.purgeAfter)>Date.now() : !j.archivedAt);
-  const rows = all.filter((j) => (!status || j.status === status) && (!source || j.source === source));
-  const skipped = all.filter((j) => j.status === "skipped");
-  const showSkipped = one("skipped") === "1";
-  const columns = showSkipped ? [...COLUMNS, "skipped" as const] : COLUMNS;
-
-  return (
-    <div className="grid gap-6">
-      <BusyPoller active={all.some(isBusy)} />
+    const account = await requireSession();
+    const sp = await searchParams;
+    const one = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : sp[k]);
+    const status = Status.safeParse(one("status")).data;
+    const source = Source.safeParse(one("source")).data;
+    const archived = one("archived") === "1";
+    const all = listJobs(account).filter(j => archived ? !!j.archivedAt && !isExpired(j) : !j.archivedAt);
+    const rows = all.filter((j) => (!status || j.status === status) && (!source || j.source === source));
+    const skipped = all.filter((j) => j.status === "skipped");
+    const showSkipped = one("skipped") === "1";
+    const columns = showSkipped ? [...COLUMNS, "skipped" as const] : COLUMNS;
+    return (<div className="grid gap-6">
+      <BusyPoller active={all.some(isBusy)}/>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-primary">{archived?"Archive":"Jobs"}</h1>
+        <h1 className="text-2xl font-semibold text-primary">{archived ? "Archive" : "Jobs"}</h1>
         <Button asChild><Link href="/app/new">New job</Link></Button>
       </div>
       <div className="flex gap-4 text-sm"><Link className="underline" href="/app/jobs">Active jobs</Link><Link className="underline" href="/app/jobs?archived=1&view=table">Archive (30 days)</Link></div>
@@ -48,28 +45,26 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
           </div>
           <div className="flex gap-4 overflow-x-auto pb-2">
             {columns.map((s) => {
-              const jobs = all.filter((j) => j.status === s);
-              return (
-                <section key={s} aria-label={statusLabel(s)} className="w-72 shrink-0 rounded-lg bg-muted/60 p-2">
+            const jobs = all.filter((j) => j.status === s);
+            return (<section key={s} aria-label={statusLabel(s)} className="w-72 shrink-0 rounded-lg bg-muted/60 p-2">
                   <h2 className="mb-2 flex items-center justify-between px-1 text-sm font-semibold">
                     {statusLabel(s)}<span className="text-xs font-medium text-muted-foreground">{jobs.length}</span>
                   </h2>
                   <div className="grid gap-2">
-                    {jobs.map((j) => <JobCard key={j.id} job={toCardJob(j)} busy={isBusy(j)} />)}
+                    {jobs.map((j) => <JobCard key={j.id} job={toCardJob(j)} busy={isBusy(j)}/>)}
                     {jobs.length === 0 && <p className="px-1 py-3 text-xs text-muted-foreground">Nothing here.</p>}
                   </div>
-                </section>
-              );
-            })}
+                </section>);
+        })}
           </div>
         </TabsContent>
 
         <TabsContent value="table" className="grid gap-4">
           <form className="flex flex-wrap items-end gap-3">
-            <input type="hidden" name="view" value="table" />
-            {archived&&<input type="hidden" name="archived" value="1"/>}
-            <FilterSelect name="source" label="Source" value={source} options={Source.options} />
-            <FilterSelect name="status" label="Status" value={status} options={Status.options} />
+            <input type="hidden" name="view" value="table"/>
+            {archived && <input type="hidden" name="archived" value="1"/>}
+            <FilterSelect name="source" label="Source" value={source} options={Source.options}/>
+            <FilterSelect name="status" label="Status" value={status} options={Status.options}/>
             <Button type="submit" variant="secondary">Filter</Button>
           </form>
           <Table>
@@ -81,34 +76,35 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
             </TableHeader>
             <TableBody>
               {rows.map((j) => {
-                const l = jobLabel(j, isBusy(j));
-                return (
-                  <TableRow key={j.id}>
+            const l = jobLabel(j, isBusy(j));
+            return (<TableRow key={j.id}>
                     <TableCell>
                       <Link href={`/app/jobs/${j.id}`} className="font-semibold text-primary hover:underline">{l.title}</Link>
                       <div className="text-xs text-muted-foreground">{l.company}</div>
+                      {j.purgeAfter && <p className="text-xs text-warning">Deletes {new Date(j.purgeAfter).toLocaleString("en-GB", { timeZone: "Asia/Jakarta" })} Jakarta</p>}
                     </TableCell>
                     <TableCell className="capitalize">{j.source}</TableCell>
-                    <TableCell><StatusBadge status={j.status} /></TableCell>
+                    <TableCell><StatusBadge status={j.status}/></TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1.5"><ScoreBadge score={j.matchScore} /><SalaryFitBadge fit={j.salaryFit} /><ScamBadge risk={j.scamRisk} /></div>
+                      <div className="flex flex-wrap gap-1.5"><ScoreBadge score={j.matchScore}/><SalaryFitBadge fit={j.salaryFit}/><ScamBadge risk={j.scamRisk}/></div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground">{fmtDate(j.updatedAt)}</TableCell>
-                  </TableRow>
-                );
-              })}
+                  </TableRow>);
+        })}
               {rows.length === 0 && <TableRow><TableCell colSpan={5} className="py-6 text-center text-muted-foreground">No jobs match.</TableCell></TableRow>}
             </TableBody>
           </Table>
         </TabsContent>
       </Tabs>
-    </div>
-  );
+    </div>);
 }
-
-function FilterSelect({ name, label, value, options }: { name: string; label: string; value?: string; options: readonly string[] }) {
-  return (
-    <div className="grid gap-1.5">
+function FilterSelect({ name, label, value, options }: {
+    name: string;
+    label: string;
+    value?: string;
+    options: readonly string[];
+}) {
+    return (<div className="grid gap-1.5">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <Select name={name} defaultValue={value ?? "all"}>
         <SelectTrigger aria-label={label} className="w-40 capitalize"><SelectValue /></SelectTrigger>
@@ -117,6 +113,5 @@ function FilterSelect({ name, label, value, options }: { name: string; label: st
           {options.map((o) => <SelectItem key={o} value={o} className="capitalize">{o}</SelectItem>)}
         </SelectContent>
       </Select>
-    </div>
-  );
+    </div>);
 }

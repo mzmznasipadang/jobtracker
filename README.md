@@ -146,3 +146,30 @@ docker compose start web worker
 For a live backup, SQLite `.backup` can copy a single database consistently, but does not coordinate the registry and every account database. Use the stopped-services procedure for a complete installation backup. Keep backups private; they contain CVs, emails, tokens and API keys.
 
 To restore, stop both services, preserve the current data directory separately, restore the complete backed-up directory and matching `.env`, and set data ownership to `1001:1001` before starting the verified release. Do not mix old main database files with newer `-wal`/`-shm` files.
+
+## Workflow: capture, review and PDF
+
+On mobile, copy the posting URL and full description (including company/title) into New job. When a server cannot fetch a posting, the form keeps your input and asks for pasted text. Review job details after extraction; missing fields and missing master CV are shown beside Generate draft. Manual corrections do not call AI. Retrying extraction after manual edits requires confirmation to replace those details.
+
+Generate draft creates an editable application without a PDF. Review the summary, included experience/project bullets, selected skills, cover letter and answers; save changes and check the accuracy acknowledgement before Generate PDF. Source employers/dates/contact facts come from the master CV snapshot; change those in Settings and generate another draft. Drafts retain their original provider/model/skill revisions. Existing PDF versions stay available. Saving and PDF export do not consume AI requests. Unsaved drafts warn before leaving through links or closing the page.
+
+## Archive and 30-day deletion
+
+Archive hides a job from the active pipeline, email matching and follow-up processing. Use the Archive view to restore it before its deletion deadline. Its original status, notes, draft and PDFs return on restore. Exactly 30 days (30 × 24 hours, UTC) after archiving, restore and document access stop; the ten-minute worker permanently removes the expired job and related application files on its next cycle, including for revoked users. Gmail messages are never deleted. Archive alone preserves historical metrics; permanent deletion removes the application from them. Delete job remains an immediate permanent option.
+
+This is deletion from the live database, not secure erasure of SQLite pages or root-private backups. Existing deployment backups remain owner-managed; review their retention separately. When restoring a full backup, stop both services, restore matching code/images/data/environment, then run expiry cleanup **before** exposing the restored app:
+
+```sh
+docker compose run --rm --no-deps web ./node_modules/.bin/tsx -e 'import {listMaintenanceAccounts} from "./src/lib/accounts"; import {purgeExpiredJobs} from "./src/lib/archive"; for (const account of listMaintenanceAccounts()) purgeExpiredJobs(account);'
+docker compose up -d --no-build
+```
+
+Migrations require a coordinated full data/environment backup with both writers stopped. Roll back code/images and their matching full data snapshot together; preserve failed upgraded data separately. Older images cannot read newer schemas safely.
+
+## Owner AI usage controls
+
+Settings → AI usage and allowances shows per-user requests, provider/model/operation breakdowns, reported tokens and estimated USD costs. The owner can pause AI globally or per user, set default/per-user monthly allowances and set an override for a particular UTC calendar month. Blank allowance means unlimited; zero blocks new requests. Defaults remain unlimited and unpaused. Members see only their own usage. A period override takes precedence over the normal per-user/default allowance; it does not bypass a pause.
+
+Each upstream attempt reserves allowance before dispatch, including requests from background Gmail classification. Failed/refused/malformed responses and timeouts count once dispatched. SDK automatic retries are disabled; an explicit retry counts separately. Reservations with unknown outcome after a crash remain counted. Requests proven cancelled before dispatch do not count. A multi-call workflow may stop at the limit while retaining its saved inputs/results; manual draft edits and PDF export remain available. Existing usage before this release is not reconstructed.
+
+Optional model pricing is entered by the owner in USD per million normal-input, cached-input, cache-write and output tokens. Rates are snapshotted per request. Missing rates or telemetry show unavailable cost and coverage, rather than zero cost; a known subtotal is not a complete bill. Estimates may differ from provider invoices. Limits enforce request counts, not a dollar ceiling. No CV, prompt, job/email contents, credentials or raw provider errors are saved in the usage ledger.

@@ -1,3 +1,4 @@
+import type { Operation, TokenUsage } from "../ai-usage";
 import { z } from "zod";
 import type { AiSelection } from "../ai-settings";
 export type AiContent = string | ({
@@ -12,6 +13,7 @@ export type AiContent = string | ({
     };
 })[];
 export type AiRequest<T> = {
+    operation?: Operation;
     schema: z.ZodType<T>;
     system: string;
     content: AiContent;
@@ -20,7 +22,7 @@ export type AiRequest<T> = {
     ai?: AiSelection;
 };
 export class AiError extends Error {
-    constructor(public code: "refusal" | "unparseable" | "api", message: string, options?: ErrorOptions) { super(message, options); this.name = "AiError"; }
+    constructor(public code: "refusal" | "unparseable" | "api" | "policy", message: string, options?: ErrorOptions) { super(message, options); this.name = "AiError"; }
 }
 export function parseOutput<T>(schema: z.ZodType<T>, text: string): T {
     try {
@@ -36,3 +38,8 @@ export function providerError(error: unknown): never {
         throw error;
     throw new AiError("api", "AI request failed. Check the configured provider key, model and permissions.");
 }
+export type RequestObserver = {
+    dispatch: () => void;
+    usage: (usage: TokenUsage) => void;
+};
+export const tokenCount = (n: unknown): number | null => typeof n === "number" && Number.isSafeInteger(n) && n >= 0 ? n : null;
