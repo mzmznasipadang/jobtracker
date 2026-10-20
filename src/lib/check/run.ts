@@ -4,7 +4,7 @@ import { z } from "zod";
 import { askJson, snapshotAi } from "../ai";
 import { getMasterCv } from "../cv/parse";
 import { getAccountDb } from "../db";
-import { addEvent, getJob } from "../jobs";
+import { addEvent, requireActiveJob } from "../jobs";
 import { MATCH_JOB, SCAM_REVIEW } from "../prompts";
 import { getSettings } from "../settings";
 import { salaryFit } from "./salary";
@@ -24,7 +24,7 @@ const RAW_LIMIT = 20_000;
 
 // Throws AiError on a failed Claude call; nothing is stored then, so the caller's extraction stays intact.
 export async function runChecks(account: Account, jobId: number, ai: AiSelection = snapshotAi()): Promise<void> {
-  const job = getJob(account, jobId);
+  const job = requireActiveJob(account, jobId);
   if (!job) throw new Error(`Job ${jobId} not found`);
   const settings = getSettings(account);
   const cv = getMasterCv(account);
@@ -49,6 +49,7 @@ export async function runChecks(account: Account, jobId: number, ai: AiSelection
     matchJson = JSON.stringify({ reasons: m.reasons, gaps: m.gaps, missingKeywords: m.missingKeywords, dealBreakerHit: m.dealBreakerHit });
   }
 
+  requireActiveJob(account,jobId);
   const scam = await askJson(account, { ai,
     schema: ScamResult, system: SCAM_REVIEW, effort: "low",
     content: JSON.stringify({ posting, source: job.source, recruiterEmail: job.recruiterEmail, applyEmail: job.applyEmail, ruleSignals: signals, rawText: (job.rawText ?? "").slice(0, RAW_LIMIT) }),
@@ -56,6 +57,7 @@ export async function runChecks(account: Account, jobId: number, ai: AiSelection
   const risk = ORDER[Math.max(ORDER.indexOf(ruleRisk(signals)), ORDER.indexOf(scam.risk))];
 
   getAccountDb(account).transaction(() => {
+    requireActiveJob(account,jobId);
     // Decide at write time: the user may have changed the status while the Claude calls ran.
     const cur = getAccountDb(account).prepare("SELECT status, extract_error FROM jobs WHERE id = ?").get(jobId) as { status: string; extract_error: string | null };
     const promote = cur.status === "saved" && cur.extract_error == null;

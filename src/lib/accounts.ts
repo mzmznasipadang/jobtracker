@@ -127,3 +127,5 @@ export function accountDbPath(account: Account): string {
 }
 
 export function resetAccounts(): void { registry?.close(); registry = null; }
+
+export function listMaintenanceAccounts():Account[] {return (getRegistry().prepare("SELECT * FROM accounts").all() as Row[]).map(identity);}

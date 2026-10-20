@@ -1,3 +1,6 @@
+import {isExpired} from "@/lib/archive";
+import {ArchiveControls} from "@/components/archive-controls";
+import {getDraft} from "@/lib/tailor/drafts";
 import {getMasterCv} from "@/lib/cv/parse";
 import {getTailorReadiness} from "@/lib/job-readiness";
 import {JobDetailsEditor} from "@/components/job-details-editor";
@@ -18,11 +21,11 @@ import { requireSession } from "@/lib/auth";
 import { getJob, isBusy, listEvents } from "@/lib/jobs";
 import { getTailored } from "@/lib/tailor/tailor";
 
-export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
+export default async function JobPage({ params, searchParams }: PageProps<"/app/jobs/[id]">) {
   const account = await requireSession();
   const { id: raw } = await params;
   const full = /^\d+$/.test(raw) ? getJob(account, Number(raw)) : null;
-  if (!full) notFound();
+  if (!full || isExpired(full)) notFound();
   const job = { ...full, rawText: null };
   const busy = isBusy(job);
   const { company, title } = jobLabel(job, busy);
@@ -32,6 +35,7 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
 
   return (
     <div className="mx-auto grid max-w-3xl gap-6">
+      {(await searchParams).duplicate === "1" && <p role="status" className="text-sm">This job is already saved. Your existing details have been kept.</p>}
       <BusyPoller active={busy} />
       <header className="grid gap-2">
         <Link href="/app/jobs" className="w-fit text-sm text-muted-foreground hover:underline">← Jobs</Link>
@@ -48,11 +52,14 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
         {job.followUpDue && <p className="text-sm font-medium text-warning">Follow-up due: no reply yet.</p>}
       </header>
 
-      <JobAlerts job={job} busy={busy} rawText={rawText} />
+      {job.archivedAt && <p role="status" className="rounded border p-4 text-sm">Archived. Permanently deleted after {new Date(job.purgeAfter!).toLocaleString("en-GB",{timeZone:"Asia/Jakarta"})} Jakarta time.</p>}
+      {!job.archivedAt && <><JobAlerts job={job} busy={busy} rawText={rawText} />
       <JobDetailsEditor key={job.updatedAt} job={job} busy={busy} />
       <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
-      <TailorPanel effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={!readiness.ready} disabledReason={readiness.reason} />
-      <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />
+      </>}
+      <TailorPanel draft={job.archivedAt?null:getDraft(account,job.id)} effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={!readiness.ready} disabledReason={readiness.reason} />
+      <ArchiveControls jobId={job.id} archived={!!job.archivedAt} busy={busy}/>
+      {!job.archivedAt && <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />}
       <Card>
         <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>
         <CardContent><Timeline events={listEvents(account, job.id)} /></CardContent>

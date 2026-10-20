@@ -19,7 +19,8 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
   const one = (k: string) => (Array.isArray(sp[k]) ? sp[k][0] : sp[k]);
   const status = Status.safeParse(one("status")).data;
   const source = Source.safeParse(one("source")).data;
-  const all = listJobs(account);
+  const archived = one("archived") === "1";
+  const all = listJobs(account).filter(j=>archived ? !!j.archivedAt&&!!j.purgeAfter&&Date.parse(j.purgeAfter)>Date.now() : !j.archivedAt);
   const rows = all.filter((j) => (!status || j.status === status) && (!source || j.source === source));
   const skipped = all.filter((j) => j.status === "skipped");
   const showSkipped = one("skipped") === "1";
@@ -29,9 +30,10 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
     <div className="grid gap-6">
       <BusyPoller active={all.some(isBusy)} />
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-primary">Jobs</h1>
+        <h1 className="text-2xl font-semibold text-primary">{archived?"Archive":"Jobs"}</h1>
         <Button asChild><Link href="/app/new">New job</Link></Button>
       </div>
+      <div className="flex gap-4 text-sm"><Link className="underline" href="/app/jobs">Active jobs</Link><Link className="underline" href="/app/jobs?archived=1&view=table">Archive (30 days)</Link></div>
       <Tabs defaultValue={one("view") === "table" ? "table" : "board"}>
         <TabsList>
           <TabsTrigger value="board">Board</TabsTrigger>
@@ -65,6 +67,7 @@ export default async function JobsPage({ searchParams }: PageProps<"/app/jobs">)
         <TabsContent value="table" className="grid gap-4">
           <form className="flex flex-wrap items-end gap-3">
             <input type="hidden" name="view" value="table" />
+            {archived&&<input type="hidden" name="archived" value="1"/>}
             <FilterSelect name="source" label="Source" value={source} options={Source.options} />
             <FilterSelect name="status" label="Status" value={status} options={Status.options} />
             <Button type="submit" variant="secondary">Filter</Button>

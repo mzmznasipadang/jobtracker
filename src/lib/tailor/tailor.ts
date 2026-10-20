@@ -13,6 +13,12 @@ import { htmlToPdf } from "./pdf";
 
 // Throws on any failure (the caller wraps it in startJobWork); nothing is stored then.
 export async function tailorJob(account: Account, jobId: number, extraQuestions: string[] = []): Promise<{ version: number }> {
+  const { setup, tailored, out, lang } = await generateTailorContent(account,jobId,extraQuestions);
+  const pdf = await htmlToPdf(renderCvHtml(tailored, lang));
+  return storeTailored(account,jobId,tailored,out,lang,setup,pdf);
+}
+
+export async function generateTailorContent(account:Account,jobId:number,extraQuestions:string[]=[]) {
   const setup = snapshotTailoring();
   const job = getJob(account, jobId);
   if (!job) throw new Error(`Job ${jobId} not found`);
@@ -33,13 +39,14 @@ export async function tailorJob(account: Account, jobId: number, extraQuestions:
     }),
   });
   const tailored = applyGuard(out, cv);
-  const pdf = await htmlToPdf(renderCvHtml(tailored, lang));
-  // shortcut: cover letter/answers aren't fact-checked against the master CV; add a claim check if fabrications show up
-
+  return {setup,tailored,out,lang};
+}
+export function storeTailored(account:Account,jobId:number,tailored:TailoredCv,out:Pick<TailorOutput,'coverLetter'|'answers'>,lang:'en'|'id',setup:TailorSetup,pdf:Buffer,draft?:{id:string;revision:number}) {
   return getAccountDb(account).transaction(() => {
     const { version } = getAccountDb(account).prepare(`INSERT INTO tailored (job_id, version, cv_json, cover_letter, answers_json, pdf)
       VALUES (?, (SELECT COALESCE(MAX(version), 0) + 1 FROM tailored WHERE job_id = ?), ?, ?, ?, ?) RETURNING version`)
       .get(jobId, jobId, JSON.stringify(tailored), out.coverLetter, JSON.stringify(out.answers), pdf) as { version: number };
+    if(draft)getAccountDb(account).prepare('UPDATE tailored SET draft_id=?,draft_revision=? WHERE job_id=? AND version=?').run(draft.id,draft.revision,jobId,version);
     const metadata: GenerationMetadata = { ...setup.ai, primary: setup.primary, additional: setup.additional };
     getAccountDb(account).prepare("INSERT INTO generation_metadata(job_id,version,data_json) VALUES (?,?,?)").run(jobId,version,JSON.stringify(metadata));
     addEvent(account, jobId, "tailor", { version, language: lang });

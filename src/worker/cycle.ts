@@ -1,9 +1,11 @@
-import { getActiveAccount, listActiveAccounts } from "../lib/accounts";
+import {purgeExpiredJobs} from "../lib/archive";
+import { getActiveAccount, listActiveAccounts, listMaintenanceAccounts } from "../lib/accounts";
 import { syncInbox } from "../lib/email/sync";
 import { runGhostDetection } from "../lib/ghost";
 import { getKv } from "../lib/settings";
 
 async function cycle(): Promise<void> {
+  for(const account of listMaintenanceAccounts()) {try{purgeExpiredJobs(account);}catch{console.error(`[worker] account ${account.id} archive cleanup failed`);}}
   for (const candidate of listActiveAccounts()) {
     const account = getActiveAccount(candidate.id);
     if (!account) continue;

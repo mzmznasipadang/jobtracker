@@ -1,4 +1,6 @@
 "use client";
+import type {Draft} from "@/lib/tailor/drafts";
+import {TailorDraftEditor} from "./tailor-draft-editor";
 import type { getEffectiveAiSummary } from "@/lib/cv-skills";
 
 import { useState, useTransition } from "react";
@@ -35,7 +37,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, effectiveAi }: { disabledReason?: string|null; effectiveAi: ReturnType<typeof getEffectiveAiSummary>; jobId: number; busy: boolean; versions: TailoredVersion[]; disabled: boolean }) {
+export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, draft, effectiveAi }: { draft?:Draft|null; disabledReason?: string|null; effectiveAi: ReturnType<typeof getEffectiveAiSummary>; jobId: number; busy: boolean; versions: TailoredVersion[]; disabled: boolean }) {
   const [questions, setQuestions] = useState("");
   const [pending, start] = useTransition();
   const working = busy || pending;
@@ -44,7 +46,7 @@ export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, e
     <Card>
       <CardHeader>
         <CardTitle>Tailor</CardTitle>
-        <CardDescription>Creates a CV PDF, a cover letter and form answers from your master CV. Each run is a new version.</CardDescription>
+        <CardDescription>Generate a draft, review and edit it, then create your CV PDF. Existing PDF versions stay available.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4">
         <p className="text-xs text-muted-foreground">New runs: {effectiveAi.provider} · {effectiveAi.model} · {effectiveAi.primary}{effectiveAi.additional ? ` + ${effectiveAi.additional}` : ""}</p>
@@ -57,11 +59,12 @@ export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, e
           className="w-fit"
           disabled={working || disabled}
           onClick={() => start(async () => {
-            const r = await tailorAction(jobId, questions.split("\n").map((q) => q.trim()).filter(Boolean));
+            if(draft&&!window.confirm("Replace your current draft? Existing PDF versions will stay available."))return;
+            const r = await tailorAction(jobId, questions.split("\n").map((q) => q.trim()).filter(Boolean),draft?.revision??null);
             if (!r.ok) toast.error(r.error);
           })}
         >
-          {working ? "Tailoring…" : versions.length ? "Tailor again" : "Tailor"}
+          {working ? "Generating draft…" : draft ? "Replace draft" : "Generate draft"}
         </Button>
         {working && (
           <div role="status" className="grid gap-2">
@@ -69,6 +72,8 @@ export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, e
             <Skeleton className="h-4 w-2/3" />
           </div>
         )}
+
+        {draft && <TailorDraftEditor key={`${draft.id}:${draft.revision}`} jobId={jobId} draft={draft} busy={busy}/>}
 
         {versions.map((v, i) => (
           <section key={v.version} className="grid gap-3 rounded-lg border p-4" aria-label={`Version ${v.version}`}>

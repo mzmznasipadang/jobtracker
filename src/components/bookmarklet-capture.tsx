@@ -15,6 +15,7 @@ export function BookmarkletCapture({ viaBookmarklet }: { viaBookmarklet: boolean
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [showText, setShowText] = useState(true);
+  const [restoreUrl,setRestoreUrl]=useState<string|null>(null);
   const [error, setError] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(viaBookmarklet);
   const [pending, start] = useTransition();
@@ -39,7 +40,7 @@ export function BookmarkletCapture({ viaBookmarklet }: { viaBookmarklet: boolean
     start(async () => {
       const r = await captureAction({ url, text });
       if (!r) return; // success redirects
-      setError(r.error);
+      setError(r.error);setRestoreUrl(r.restoreUrl??null);
       if (r.needsText) { setShowText(true); requestAnimationFrame(()=>descriptionRef.current?.focus()); }
     });
   }
@@ -79,6 +80,7 @@ export function BookmarkletCapture({ viaBookmarklet }: { viaBookmarklet: boolean
       ) : (
         <Button type="button" variant="link" className="w-fit px-0" onClick={() => setShowText(true)}>Paste job description instead</Button>
       )}
+      {restoreUrl&&<a href={restoreUrl} target="_blank" rel="noopener" className="text-sm underline">Open archived job to restore</a>}
       {error && <p role="alert" className="text-sm font-medium text-danger">{error}</p>}
       <Button type="submit" disabled={pending} className="w-fit">{pending ? "Capturing…" : "Capture"}</Button>
     </form>

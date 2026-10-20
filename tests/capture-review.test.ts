@@ -1,6 +1,6 @@
 import {expect,it,vi} from 'vitest';
 vi.mock('@/lib/auth',()=>({requireSession:vi.fn(async()=>({id:1,role:'owner',email:'owner@gmail.com'}))}));
-vi.mock('@/lib/jobs',()=>({captureJob:vi.fn()}));
+vi.mock('@/lib/jobs',()=>({captureJob:vi.fn(),getJob:vi.fn(()=>null)}));
 vi.mock('next/navigation',()=>({redirect:vi.fn((url:string)=>{throw new Error('REDIRECT '+url);})}));
 import {captureJob} from '@/lib/jobs';import {captureAction} from '@/app/app/new/actions';
 it('offers paste recovery for fetch failure and opens duplicates without replacing content',async()=>{

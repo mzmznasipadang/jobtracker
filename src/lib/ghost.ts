@@ -1,6 +1,6 @@
 import type { Account } from "./accounts";
 import { getAccountDb } from "./db";
-import { addEvent, setStatus } from "./jobs";
+import { addEvent, setStatus, requireActiveJob } from "./jobs";
 import { getSettings } from "./settings";
 
 const DAY_MS = 86_400_000;
@@ -9,7 +9,7 @@ const DAY_MS = 86_400_000;
 export function runGhostDetection(account: Account, now = new Date()): { flagged: number; ghosted: number } {
   const { followUpDays, ghostDays } = getSettings(account).pipeline;
   const rows = getAccountDb(account)
-    .prepare("SELECT id, applied_at, follow_up_due FROM jobs WHERE status = 'applied' AND first_response_at IS NULL AND status_locked = 0 AND applied_at IS NOT NULL")
+    .prepare("SELECT id, applied_at, follow_up_due FROM jobs WHERE archived_at IS NULL AND status = 'applied' AND first_response_at IS NULL AND status_locked = 0 AND applied_at IS NOT NULL")
     .all() as { id: number; applied_at: string; follow_up_due: number }[];
   let flagged = 0, ghosted = 0;
   for (const r of rows) {
@@ -28,6 +28,7 @@ export function runGhostDetection(account: Account, now = new Date()): { flagged
 }
 
 export function clearFollowUp(account: Account, id: number): void {
+  requireActiveJob(account,id);
   getAccountDb(account).transaction(() => {
     getAccountDb(account).prepare("UPDATE jobs SET follow_up_due = 0, updated_at = ? WHERE id = ?").run(new Date().toISOString(), id);
     addEvent(account, id, "note", { text: "Followed up" });

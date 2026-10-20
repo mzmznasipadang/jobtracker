@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { splitPasted } from "@/lib/bookmarklet";
 import { requireSession } from "@/lib/auth";
-import { captureJob } from "@/lib/jobs";
+import { captureJob, getJob } from "@/lib/jobs";
 
-export type CaptureResult = { ok: false; error: string; needsText: boolean };
+export type CaptureResult = { ok: false; error: string; needsText: boolean; restoreUrl?:string };
 
 const Input = z.object({ url: z.string().max(2000), text: z.string().max(200_000) });
 
@@ -25,6 +25,7 @@ export async function captureAction(input: { url: string; text: string }): Promi
     // `done` (extraction + checks) is deliberately not awaited.
     const result = await captureJob(account, { url, text: text.trim() || undefined });
     id = result.id; duplicate = !result.created;
+    if(duplicate&&getJob(account,id)?.archivedAt)return {ok:false,error:"This job is archived. Open it to restore within 30 days. Your pasted text is kept here.",needsText:false,restoreUrl:`/app/jobs/${id}`};
   } catch (e) {
     const msg = e instanceof Error ? e.message : "";
     if (msg.startsWith("Could not fetch")) return { ok: false, error: "Could not read this page from the server. Paste its full description below, or use the bookmarklet.", needsText: true };

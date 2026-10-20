@@ -3,7 +3,7 @@ import type { Account } from "../accounts";
 import { randomUUID } from "node:crypto";
 import { AiError, snapshotAi } from "../ai";
 import { getAccountDb } from "../db";
-import { addEvent, listJobs, setStatus } from "../jobs";
+import { addEvent, listJobs, setStatus, requireActiveJob } from "../jobs";
 import { getKv, getSettings, setKv } from "../settings";
 import type { Status } from "../types";
 import { classifyEmail, emailText, keywordClassify, type Classification } from "./classify";
@@ -30,6 +30,7 @@ function applyEmail(account: Account, jobId: number, e: StoredEmail): void {
 }
 
 export function linkEmail(account: Account, emailId: string, jobId: number): void {
+  requireActiveJob(account,jobId);
   const e = getAccountDb(account).prepare("SELECT id, original_from, subject, snippet, received_at, classification, job_id FROM emails WHERE id = ?").get(emailId) as
     (StoredEmail & { job_id: number | null }) | undefined;
   if (!e) throw new Error("Email not found");
@@ -67,7 +68,7 @@ async function run(account: Account, now: Date, ai: AiSelection): Promise<{ stor
   for (const email of messages) {
     if (getKv(account, "gmailToken") !== connection) return result;
     if (known.get(email.id)) continue;
-    const jobId = matchJob(email, listJobs(account), outlook, owner);
+    const jobId = matchJob(email, listJobs(account).filter(job=>!job.archivedAt), outlook, owner);
     // Privacy: unrelated mail is neither stored nor sent to Claude, and Claude only ever sees mail matched to a job.
     if (!isJobRelated(email, jobId, outlook, owner)) {
       result.skipped++;

@@ -22,6 +22,7 @@ export function openDb(path: string): Database.Database {
     }
     if (version < 3) db.exec(`
       ALTER TABLE jobs ADD COLUMN details_edited_at TEXT;
+      ALTER TABLE jobs ADD COLUMN busy_token TEXT;
       ALTER TABLE jobs ADD COLUMN archived_at TEXT;
       ALTER TABLE jobs ADD COLUMN purge_after TEXT;
       CREATE INDEX jobs_purge_idx ON jobs(purge_after);
