@@ -10,3 +10,7 @@ it('offers paste recovery for fetch failure and opens duplicates without replaci
     vi.mocked(captureJob).mockResolvedValueOnce({ id: 1, created: false, done: Promise.resolve() });
     await expect(captureAction({ url: 'https://example.com/job', text: 'copied text' })).rejects.toThrow('REDIRECT /app/jobs/1?duplicate=1');
 });
+it('keeps pasted input on an archived duplicate and offers restoration',async()=>{
+ const {getJob}=await import('@/lib/jobs');vi.mocked(captureJob).mockResolvedValueOnce({id:4,created:false,done:Promise.resolve()});vi.mocked(getJob).mockReturnValueOnce({archivedAt:'2026-10-20T00:00:00Z'} as never);
+ expect(await captureAction({url:'https://example.com/job',text:'Unsaved copied text'})).toMatchObject({ok:false,needsText:false,restoreUrl:'/app/jobs/4'});
+});

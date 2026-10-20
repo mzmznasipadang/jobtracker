@@ -127,3 +127,7 @@
 ## Handoff
 
 Plan reviewed against approved spec: lifecycle deadlines, draft idempotency, quota accounting, migration/rollback, mobile recovery and account isolation assigned to tasks above. Proposed implementation order is 1→8. Inline execution is preserved from prior releases. Application code is unchanged while this plan awaits review.
+
+## Implementation record — 2026-10-20
+
+Tasks 1–8 implemented inline and independently reviewed. Final checks: 226 tests across 53 files, lint and TypeScript pass; server production Docker build/npm ci and disposable authenticated mobile/browser/PDF flows pass. The reviewer’s two lifecycle findings were reproduced with failing tests and fixed. Mobile field availability and stacked labels were corrected after browser verification. Live source release 52c381b is healthy; all three account worker cycles succeeded and backup comparisons confirm existing data, settings and secrets unchanged. Backup: /root/jobtracker-backups/20261020T035108Z-workflow-phase1. Subsequent changes in this commit are regression tests and this record only. Phase 2 remains deferred; owner UI confirmation requested asynchronously.
