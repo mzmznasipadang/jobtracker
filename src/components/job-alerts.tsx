@@ -8,11 +8,12 @@ import { needsExtraction } from "@/components/job-status-badge";
 import { rerunChecks, retryExtractionAction } from "@/app/app/jobs/[id]/actions";
 import type { Job } from "@/lib/types";
 
-type Alerts = Pick<Job, "id" | "company" | "title" | "extractError" | "busyError">;
+type Alerts = Pick<Job, "id" | "company" | "title" | "extractError" | "busyError" | "detailsEditedAt">;
 type Result = { ok: true } | { ok: false; error: string };
 
 // Mounted only while shown, so the editor starts from the raw text the page passes in that case.
 function ExtractBanner({ job, busy, rawText }: { job: Alerts; busy: boolean; rawText: string }) {
+  const [replaceEdited,setReplaceEdited] = useState(false);
   const [text, setText] = useState(rawText);
   const [pending, start] = useTransition();
   return (
@@ -23,11 +24,12 @@ function ExtractBanner({ job, busy, rawText }: { job: Alerts; busy: boolean; raw
         <summary className="cursor-pointer font-medium">Edit the captured text</summary>
         <Textarea aria-label="Captured text" rows={10} value={text} onChange={(e) => setText(e.target.value)} className="mt-2" />
       </details>
+      {job.detailsEditedAt && <label className="flex gap-2 text-sm"><input type="checkbox" checked={replaceEdited} onChange={e=>setReplaceEdited(e.target.checked)}/>Replace my manually edited job details with extraction results</label>}
       <div className="flex flex-wrap gap-2">
         <Button
-          disabled={pending || busy}
+          disabled={pending || busy || (!!job.detailsEditedAt && !replaceEdited)}
           onClick={() => start(async () => {
-            const r = await retryExtractionAction(job.id, text !== rawText ? text : undefined);
+            const r = await retryExtractionAction(job.id, text !== rawText ? text : undefined, replaceEdited);
             if (!r.ok) toast.error(r.error);
           })}
         >

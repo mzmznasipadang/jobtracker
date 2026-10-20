@@ -1,3 +1,6 @@
+import {getMasterCv} from "@/lib/cv/parse";
+import {getTailorReadiness} from "@/lib/job-readiness";
+import {JobDetailsEditor} from "@/components/job-details-editor";
 import { getEffectiveAiSummary } from "@/lib/cv-skills";
 import { ExternalLinkIcon } from "lucide-react";
 import Link from "next/link";
@@ -23,7 +26,7 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
   const job = { ...full, rawText: null };
   const busy = isBusy(job);
   const { company, title } = jobLabel(job, busy);
-  const extracted = !!(job.company || job.title);
+  const readiness = getTailorReadiness(job,!!getMasterCv(account));
   // The raw text (up to ~100 KB) goes to the client only for the editor, never into the 3 s poll otherwise.
   const rawText = needsExtraction(job, busy) ? full.rawText : null;
 
@@ -46,8 +49,9 @@ export default async function JobPage({ params }: PageProps<"/app/jobs/[id]">) {
       </header>
 
       <JobAlerts job={job} busy={busy} rawText={rawText} />
+      <JobDetailsEditor key={job.updatedAt} job={job} busy={busy} />
       <CheckPanel job={job} busy={busy && job.busy !== "tailoring"} />
-      <TailorPanel effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={busy || !extracted || !!job.extractError} />
+      <TailorPanel effectiveAi={getEffectiveAiSummary()} jobId={job.id} busy={busy && job.busy === "tailoring"} versions={getTailored(account, job.id)} disabled={!readiness.ready} disabledReason={readiness.reason} />
       <ApplyBar jobId={job.id} status={job.status} replied={!!job.firstResponseAt} followUpDue={job.followUpDue} />
       <Card>
         <CardHeader><CardTitle>Timeline</CardTitle></CardHeader>

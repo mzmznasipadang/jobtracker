@@ -35,7 +35,7 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function TailorPanel({ jobId, busy, versions, disabled, effectiveAi }: { effectiveAi: ReturnType<typeof getEffectiveAiSummary>; jobId: number; busy: boolean; versions: TailoredVersion[]; disabled: boolean }) {
+export function TailorPanel({ jobId, busy, versions, disabled, disabledReason, effectiveAi }: { disabledReason?: string|null; effectiveAi: ReturnType<typeof getEffectiveAiSummary>; jobId: number; busy: boolean; versions: TailoredVersion[]; disabled: boolean }) {
   const [questions, setQuestions] = useState("");
   const [pending, start] = useTransition();
   const working = busy || pending;
@@ -52,6 +52,7 @@ export function TailorPanel({ jobId, busy, versions, disabled, effectiveAi }: { 
           <Label htmlFor="questions">Extra questions from the form</Label>
           <Textarea id="questions" rows={3} placeholder="One question per line" value={questions} onChange={(e) => setQuestions(e.target.value)} />
         </div>
+        {disabledReason && <p role="status" className="text-sm text-warning">{disabledReason}</p>}
         <Button
           className="w-fit"
           disabled={working || disabled}

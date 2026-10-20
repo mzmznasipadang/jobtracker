@@ -6,7 +6,7 @@ import { z } from "zod";
 import { requireSession } from "@/lib/auth";
 import { runChecks } from "@/lib/check/run";
 import { clearFollowUp } from "@/lib/ghost";
-import { addNote, deleteJob, markRepliedElsewhere, retryExtraction, setStatus, startJobWork } from "@/lib/jobs";
+import { addNote, deleteJob, updateJobDetails, markRepliedElsewhere, retryExtraction, setStatus, startJobWork } from "@/lib/jobs";
 import { tailorJob } from "@/lib/tailor/tailor";
 import { Status } from "@/lib/types";
 
@@ -38,8 +38,8 @@ export async function tailorAction(id: number, questions: string[]) {
   });
 }
 
-export async function retryExtractionAction(id: number, text?: string) {
-  return run((account) => void retryExtraction(account, Id.parse(id), z.string().max(200_000).optional().parse(text)));
+export async function retryExtractionAction(id: number, text?: string, replaceEdited = false) {
+  return run((account) => void retryExtraction(account, Id.parse(id), z.string().max(200_000).optional().parse(text), z.boolean().parse(replaceEdited)));
 }
 
 export async function setStatusAction(id: number, status: Status) {
@@ -68,4 +68,8 @@ export async function deleteJobAction(id: number): Promise<Result> {
   revalidatePath("/app/jobs");
   revalidatePath("/app");
   return { ok: true };
+}
+
+export async function updateJobDetailsAction(id:number,input:Parameters<typeof updateJobDetails>[2]) {
+ return run(account=>updateJobDetails(account,Id.parse(id),input));
 }

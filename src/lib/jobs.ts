@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { AiSelection } from "./ai-settings";
 import type { Account } from "./accounts";
 import { AiError, snapshotAi } from "./ai";
@@ -19,7 +20,7 @@ const now = () => new Date().toISOString();
 function toJob(r: Row): Job {
   return Job.parse({
     id: r.id, url: r.url, source: Source.safeParse(r.source).success ? r.source : "other", status: r.status, busy: r.busy, busySince: r.busy_since, busyError: r.busy_error,
-    statusLocked: !!r.status_locked, company: r.company, companyDomain: r.company_domain, title: r.title,
+    detailsEditedAt: r.details_edited_at, archivedAt: r.archived_at, purgeAfter: r.purge_after, statusLocked: !!r.status_locked, company: r.company, companyDomain: r.company_domain, title: r.title,
     location: r.location, workMode: r.work_mode, employmentType: r.employment_type,
     salaryMin: r.salary_min, salaryMax: r.salary_max, salaryCurrency: r.salary_currency, salaryPeriod: r.salary_period,
     requirements: JSON.parse(r.requirements as string), niceToHave: JSON.parse(r.nice_to_have as string),
@@ -94,7 +95,7 @@ async function extractWork(account: Account, id: number, ai: AiSelection): Promi
     const f = await extractJob(account, job.rawText ?? "", job.url, ai);
     getAccountDb(account).prepare(`UPDATE jobs SET company=?, company_domain=?, title=?, location=?, work_mode=?, employment_type=?,
       salary_min=?, salary_max=?, salary_currency=?, salary_period=?, requirements=?, nice_to_have=?, description=?,
-      apply_method=?, apply_email=?, apply_url=?, recruiter_email=?, language=?, extract_error=NULL, updated_at=? WHERE id=?`)
+      apply_method=?, apply_email=?, apply_url=?, recruiter_email=?, language=?, extract_error=NULL, details_edited_at=NULL, updated_at=? WHERE id=?`)
       .run(f.company, f.companyDomain, f.title, f.location, f.workMode, f.employmentType, f.salaryMin, f.salaryMax,
         f.salaryCurrency, f.salaryPeriod, JSON.stringify(f.requirements), JSON.stringify(f.niceToHave), f.description,
         f.applyMethod, f.applyEmail, f.applyUrl, f.recruiterEmail, f.language, now(), id);
@@ -108,7 +109,8 @@ async function extractWork(account: Account, id: number, ai: AiSelection): Promi
 }
 
 // `text` replaces the stored text first (the user edited it); written only after the job is claimed.
-export function retryExtraction(account: Account, id: number, text?: string): Promise<void> {
+export function retryExtraction(account: Account, id: number, text?: string, replaceEdited = false): Promise<void> {
+  if (getJob(account,id)?.detailsEditedAt && !replaceEdited) throw new Error("Confirm replace of manually edited job details first");
   const ai = snapshotAi();
   if (text === undefined && getJob(account, id)?.rawText == null) throw new Error(`Job ${id} has no stored text to extract`);
   return startJobWork(account, id, "extracting", async () => {
@@ -156,4 +158,22 @@ export function markRepliedElsewhere(account: Account, id: number): void {
     getAccountDb(account).prepare("UPDATE jobs SET first_response_at = COALESCE(first_response_at, ?), updated_at = ? WHERE id = ?").run(iso, iso, id);
     addEvent(account, id, "status", { repliedElsewhere: true }, iso);
   })();
+}
+
+const Details = z.object({company:z.string().trim().min(1).max(300),title:z.string().trim().min(1).max(300),location:z.string().trim().max(500).nullable(),description:z.string().trim().min(1).max(200000),expectedUpdatedAt:z.string()});
+export function updateJobDetails(account:Account,id:number,input:z.infer<typeof Details>):void {
+  const value=Details.parse(input),db=getAccountDb(account);
+  db.transaction(()=>{
+    const job=requireActiveJob(account,id);
+    if(isBusy(job))throw new Error('Wait for processing to finish');
+    if(job.updatedAt!==value.expectedUpdatedAt)throw new Error('Job changed. Refresh before saving.');
+    const stamp=new Date(Math.max(Date.now(),Date.parse(job.updatedAt)+1)).toISOString();
+    db.prepare('UPDATE jobs SET company=?,title=?,location=?,description=?,extract_error=NULL,details_edited_at=?,updated_at=? WHERE id=?').run(value.company,value.title,value.location,value.description,stamp,stamp,id);
+  }).immediate();
+}
+export function requireActiveJob(account:Account,id:number):Job {
+ const job=getJob(account,id);
+ if(!job)throw new Error('Job not found');
+ if(job.archivedAt)throw new Error('Restore this archived job first');
+ return job;
 }
