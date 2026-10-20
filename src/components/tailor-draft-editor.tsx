@@ -28,7 +28,7 @@ export function TailorDraftEditor({ jobId, draft, busy }: {
         return () => { window.removeEventListener('beforeunload', unload); document.removeEventListener('click', click, true); };
     }, [dirty]);
     function change(next: DraftEdit) { setEdit(next); setReviewed(false); }
-    const field = (label: string, value: string, onChange: (value: string) => void) => <div className="grid gap-2"><Label>{label}<Textarea aria-label={label} className="mt-2" rows={4} maxLength={20000} value={value} onChange={e => onChange(e.target.value)}/></Label></div>;
+    const field = (label: string, value: string, onChange: (value: string) => void) => <div className="grid gap-2"><Label className="grid gap-2">{label}<Textarea aria-label={label} rows={4} maxLength={20000} value={value} onChange={e => onChange(e.target.value)}/></Label></div>;
     return <section className="grid min-w-0 gap-4 rounded-lg border p-4" aria-label="Application draft">
  <div><h3 className="font-semibold">Review your application draft</h3><p className="break-words text-xs text-muted-foreground">{draft.generation.provider} · {draft.generation.model} · {draft.generation.primary}{draft.generation.additional ? ` + ${draft.generation.additional}` : ''}</p></div>
  <p role="status" className="text-sm">{dirty ? 'Unsaved changes' : 'Draft saved'} · revision {revision}</p>
