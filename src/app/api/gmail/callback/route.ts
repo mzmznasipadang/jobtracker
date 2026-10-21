@@ -1,3 +1,4 @@
+import { completeMobileGmail } from "@/lib/mobile-gmail";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 import { requireSession } from "@/lib/auth";
@@ -6,6 +7,14 @@ import { consumeOAuthState } from "@/lib/oauth-state";
 import { appUrl, exchangeCode, STATE_COOKIE } from "@/lib/email/gmail";
 import { getKv, setKv } from "@/lib/settings";
 export async function GET(req: NextRequest) {
+  const state = req.nextUrl.searchParams.get("state") || "";
+  if (/^[\w-]{43}$/.test(state)) {
+    const mobileJar=await cookies(), name=`mobile_gmail_${state}`, mobile=mobileJar.get(name)?.value;
+    if(mobile) {
+      mobileJar.delete({name,path:"/api/gmail"});
+      try { return await completeMobileGmail(req,mobile); } catch { return new NextResponse("Invalid Gmail connection",{status:400}); }
+    }
+  }
   const account = await requireSession(), jar = await cookies();
   const payload = jar.get(STATE_COOKIE)?.value;
   jar.delete({ name: STATE_COOKIE, path: "/api/gmail" });

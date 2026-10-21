@@ -1,0 +1,32 @@
+import { beforeEach, afterEach, it, expect, vi } from 'vitest';
+import { createHash } from 'node:crypto';
+import { createAccountFixture } from './helpers/accounts';
+import { createSession } from '@/lib/sessions';
+import { revokeAccount } from '@/lib/accounts';
+const mock = vi.hoisted(() => ({ jar: new Map<string, string>(), exchange: vi.fn() }));
+vi.mock('next/headers', () => ({ cookies: async () => ({ set: (n: string, v: string) => mock.jar.set(n, v) }) }));
+vi.mock('@/lib/email/gmail', () => ({ authUrl: (state: string) => 'https://accounts.google.com/auth?state=' + state, exchangeCode: mock.exchange }));
+import { createGmailTicket, beginMobileGmail, completeMobileGmail, confirmMobileGmail } from '@/lib/mobile-gmail';
+let f: ReturnType<typeof createAccountFixture>, request: Request;
+const verifier = 'v'.repeat(43), challenge = createHash('sha256').update(verifier).digest('base64url'), state = 's'.repeat(43);
+beforeEach(() => { f = createAccountFixture(); mock.jar.clear(); mock.exchange.mockReset(); request = new Request('https://test', { headers: { Authorization: `Bearer ${createSession(f.member)}` } }); });
+afterEach(() => f.cleanup());
+it('defers mailbox changes until the original app proves PKCE and rejects replay', async () => {
+    const start = createGmailTicket(request, f.member, challenge, state), ticket = new URL(start.url).searchParams.get('ticket')!;
+    const redirect = await beginMobileGmail(ticket), googleState = new URL(redirect.headers.get('location')!).searchParams.get('state')!;
+    await expect(beginMobileGmail(ticket)).rejects.toThrow();
+    const result = await completeMobileGmail(new Request(`https://test/callback?state=${googleState}&code=google-code`), mock.jar.get(`mobile_gmail_${googleState}`)!);
+    expect(mock.exchange).not.toHaveBeenCalled();
+    const callback = new URL(result.headers.get('location')!);
+    expect(callback.searchParams.get('state')).toBe(state);
+    const code = callback.searchParams.get('code')!;
+    await expect(confirmMobileGmail(f.member, code, 'x'.repeat(43))).rejects.toThrow();
+    await confirmMobileGmail(f.member, code, verifier);
+    expect(mock.exchange).toHaveBeenCalledWith(f.member, 'google-code', expect.any(String));
+    await expect(confirmMobileGmail(f.member, code, verifier)).rejects.toThrow();
+});
+it('rejects expired browser tickets and revoked accounts', async () => {
+    const start = createGmailTicket(request, f.member, challenge, state);
+    revokeAccount(f.member.id);
+    await expect(beginMobileGmail(new URL(start.url).searchParams.get('ticket')!)).rejects.toThrow();
+});

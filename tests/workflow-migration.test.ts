@@ -18,7 +18,7 @@ it('upgrades deployed v2 stores once, keeping sessions and PDFs unchanged', () =
     getRegistry().exec('DROP TABLE ai_usage; DROP TABLE ai_usage_policies; DROP TABLE ai_model_pricing; PRAGMA user_version=2');
     resetAccounts();
     expect(lookupSession(token)).toEqual(f.member);
-    expect(getRegistry().pragma('user_version', { simple: true })).toBe(3);
+    expect(getRegistry().pragma('user_version', { simple: true })).toBe(4);
     const db = getAccountDb(f.owner);
     expect(db.pragma('user_version', { simple: true })).toBe(3);
     expect(db.prepare('SELECT pdf,draft_id FROM tailored').get()).toEqual({ pdf: Buffer.from('%PDF legacy'), draft_id: null });

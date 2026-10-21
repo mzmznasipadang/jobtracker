@@ -49,3 +49,28 @@ it("binds Gmail state to purpose/account/session and rejects expired/replayed ca
   vi.useFakeTimers(); vi.setSystemTime(Date.now()+11*60000);
   try { expect(()=>consumeOAuthState(old.state,old.cookie,{purpose:'signin'})).toThrow(); } finally { vi.useRealTimers(); }
 });
+it('registers new verified beta identities only if beta is still open at callback time', async () => {
+  vi.stubEnv('OPEN_BETA_ENABLED', 'true');
+  try {
+    const flow = await beginGoogleLogin('/app', undefined, '/beta');
+    const url = new URL(flow.url);
+    mockReply({...payload(url.searchParams.get('nonce')!), email:'beta@gmail.com', sub:'beta-sub'});
+    const result = await completeGoogleLogin('code', url.searchParams.get('state')!, flow.cookie);
+    expect(result.account).toMatchObject({email:'beta@gmail.com',role:'member'});
+    expect(result.next).toBe('/app');
+    const pending = createOAuthState({purpose:'signin',returnTo:'/beta'});
+    mockReply({...payload(pending.nonce),email:'late@gmail.com',sub:'late-sub'});
+    vi.stubEnv('OPEN_BETA_ENABLED', 'false');
+    await expect(completeGoogleLogin('code',pending.state,pending.cookie)).rejects.toThrow();
+  } finally { vi.unstubAllEnvs(); }
+});
+it.each([{email_verified:false},{nonce:'wrong'},{aud:'other-client'},{iss:'https://evil.test'},{exp:1}])('does not create beta accounts from invalid tokens %j', async over => {
+  vi.stubEnv('OPEN_BETA_ENABLED','true');
+  try {
+    const flow = createOAuthState({purpose:'signin'});
+    mockReply({...payload(flow.nonce),email:'invalid@gmail.com',sub:'invalid-sub',...over});
+    await expect(completeGoogleLogin('code',flow.state,flow.cookie)).rejects.toThrow();
+    const { listAccounts } = await import('@/lib/accounts');
+    expect(listAccounts().some(account=>account.email==='invalid@gmail.com')).toBe(false);
+  } finally { vi.unstubAllEnvs(); }
+});

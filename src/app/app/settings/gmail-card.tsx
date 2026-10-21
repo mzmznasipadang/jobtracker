@@ -16,13 +16,17 @@ export function GmailCard({ hasToken, error, lastSync, syncing, address }: { add
       <BusyPoller active={syncing} />
       <CardHeader>
         <CardTitle>Gmail</CardTitle>
-        <CardDescription>Reads job-related replies and updates job statuses. Other mail is never stored or sent to Claude.</CardDescription>
+        <CardDescription>Finds job-related replies and updates job statuses. Sync fetches mailbox messages before filtering; unrelated messages are not stored or sent to AI.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-1 text-sm">
         <p>Status: <span className={`font-semibold ${error ? "text-danger" : hasToken ? "text-success" : ""}`}>{state}</span></p>
         {error && <p className="text-danger">{error}</p>}
         {address && <p>Mailbox: {address}</p>}
         {hasToken && <p>Last sync: {lastSync ? fmtDate(lastSync) : "never"}</p>}
+        <p className="mt-3 text-xs leading-6 text-muted-foreground">
+          Connecting authorizes JobTracker to read mailbox messages to identify job-related replies and send relevant email text to the configured AI provider (OpenAI or Anthropic) for classification.
+          {" "}Read the <a href="/privacy" className="underline underline-offset-4">Privacy Policy</a> before connecting. Disconnecting stops sync; it does not delete imported records.
+        </p>
       </CardContent>
       <CardFooter className="flex-wrap gap-2">
         <Button asChild variant={hasToken && !error ? "outline" : "default"}>

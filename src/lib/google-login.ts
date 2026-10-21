@@ -1,15 +1,15 @@
 import { createHash } from "node:crypto";
 import { OAuth2Client, type CodeChallengeMethod } from "google-auth-library";
 import { claimGoogleAccount } from "./accounts";
-import { createOAuthState, consumeOAuthState } from "./oauth-state";
+import { createOAuthState, consumeOAuthState, type MobileBinding } from "./oauth-state";
 
 export const GOOGLE_STATE_COOKIE = "google_signin_state";
 const client = () => {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) throw new Error("Google sign-in is not configured");
   return new OAuth2Client(process.env.GOOGLE_CLIENT_ID, process.env.GOOGLE_CLIENT_SECRET, `${process.env.APP_URL || "http://localhost:3000"}/api/auth/google/callback`);
 };
-export async function beginGoogleLogin(next: string): Promise<{ url: string; cookie: string }> {
-  const auth = client(), flow = createOAuthState({ purpose: "signin", next });
+export async function beginGoogleLogin(next: string, mobile?: MobileBinding, returnTo?: "/beta"): Promise<{ url: string; cookie: string }> {
+  const auth = client(), flow = createOAuthState({ purpose: "signin", next, mobile, returnTo });
   const url = auth.generateAuthUrl({
     scope: ["openid", "email", "profile"], state: flow.state, nonce: flow.nonce,
     code_challenge: createHash("sha256").update(flow.verifier).digest("base64url"),
@@ -30,5 +30,5 @@ export async function completeGoogleLogin(code: string, state: string, cookie: s
       !["https://accounts.google.com", "accounts.google.com"].includes(p.iss) || !p.exp || p.exp * 1000 <= Date.now() ||
       (p as typeof p & { nonce?: string }).nonce !== flow.nonce) throw new Error("Invalid Google identity");
   const account = claimGoogleAccount({ sub: p.sub, email: p.email, emailVerified: p.email_verified });
-  return { account, next: flow.next };
+  return { account, next: flow.next, ...(flow.mobile ? { mobile: flow.mobile } : {}) };
 }

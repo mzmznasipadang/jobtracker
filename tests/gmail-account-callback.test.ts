@@ -12,7 +12,7 @@ let f: ReturnType<typeof createAccountFixture>, flow: ReturnType<typeof createOA
 beforeEach(()=>{
  f=createAccountFixture(); vi.clearAllMocks(); session='session-a'; mocks.auth.mockResolvedValue(f.member);
  flow=createOAuthState({purpose:'gmail',accountId:f.member.id,sessionToken:session});
- mocks.jar.get.mockImplementation((name:string)=>({value:name==='jt_session'?session:flow.cookie}));
+ mocks.jar.get.mockImplementation((name:string)=>(name==='jt_session'?{value:session}:name==='gmail_oauth_state'?{value:flow.cookie}:undefined));
  mocks.exchange.mockResolvedValue(undefined);
 });
 afterEach(()=>f.cleanup());

@@ -27,7 +27,7 @@ it('upgrades deployed v1 stores without losing sessions, identity, CV, token or 
     expect(lookupSession(token)).toEqual(f.owner);
     expect(getOwnerAccount()).toEqual(f.owner);
     expect(getAccountDb(f.owner).pragma('user_version', { simple: true })).toBe(3);
-    expect(getRegistry().pragma('user_version', { simple: true })).toBe(3);
+    expect(getRegistry().pragma('user_version', { simple: true })).toBe(4);
     expect(decrypt(getKv<string>(f.owner, 'gmailToken')!)).toBe('refresh-token');
     expect(getKv(f.owner, 'masterCv')).toEqual({ old: 'cv' });
     expect((getAccountDb(f.owner).prepare('SELECT pdf FROM tailored').get() as {

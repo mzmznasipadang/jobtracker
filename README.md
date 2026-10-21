@@ -173,3 +173,30 @@ Settings → AI usage and allowances shows per-user requests, provider/model/ope
 Each upstream attempt reserves allowance before dispatch, including requests from background Gmail classification. Failed/refused/malformed responses and timeouts count once dispatched. SDK automatic retries are disabled; an explicit retry counts separately. Reservations with unknown outcome after a crash remain counted. Requests proven cancelled before dispatch do not count. A multi-call workflow may stop at the limit while retaining its saved inputs/results; manual draft edits and PDF export remain available. Existing usage before this release is not reconstructed.
 
 Optional model pricing is entered by the owner in USD per million normal-input, cached-input, cache-write and output tokens. Rates are snapshotted per request. Missing rates or telemetry show unavailable cost and coverage, rather than zero cost; a known subtotal is not a complete bill. Estimates may differ from provider invoices. Limits enforce request counts, not a dollar ceiling. No CV, prompt, job/email contents, credentials or raw provider errors are saved in the usage ledger.
+
+## Native iOS client and mobile API
+
+The sibling `JobTrackingiOS` project contains the native SwiftUI client. It uses the same Google accounts, approvals and account databases. Deploy this backend release before signing in from iOS; there is no manual token entry in the app.
+
+The versioned API is `/api/mobile/v1`. Authenticated resource routes require an `Authorization: Bearer` session token and return private, non-cacheable JSON; browser cookies alone do not authenticate these routes. Resource handlers reuse the services called by existing web server actions. Google web sign-in remains unchanged.
+
+Mobile sign-in begins in ASWebAuthenticationSession at `/api/mobile/v1/auth/start` with a device S256 challenge and random state. The existing Google callback returns a 60-second single-use code to the fixed `jobtracker://auth/callback`. `/api/mobile/v1/auth/exchange` verifies the device proof before issuing a normal 30-day account session. The app stores it in Keychain. Gmail consent uses an authenticated one-use browser ticket and a separate device-proof confirmation before connecting the mailbox. Existing Google web callback URLs suffice; no client secret or AI/Gmail tokens are shipped to iOS.
+
+This release advances the account registry to **version 4**, adding mobile-only handoff tables. Back up the complete data directory and `.env` with both writers stopped before upgrading, as above. Rollback requires matching old code and the complete pre-upgrade data backup. Do not deploy older code against the newer registry.
+
+For setup and testing, see the iOS project's README. Mobile API tests use simulated Google responses and never call real AI services. Live login requires deployment; no deployment is performed by creating these files.
+
+## Web open beta
+
+`/beta` is the public invitation destination. Set the server-only
+`OPEN_BETA_ENABLED=true` to allow verified Google identities to register as
+members. The default is closed; existing active/approved accounts can still
+sign in. Revoked accounts are never reactivated by public signup. Gmail
+connection remains optional and is not requested during basic Google sign-in.
+
+Use `APP_URL=https://tracking.naspadstudio.id` in production and keep Google's
+registered callback at `/api/auth/google/callback`. Pausing registration requires
+setting the flag to `false` and restarting/redeploying; it does not revoke
+existing members. Before opening the beta, review the privacy notice, OAuth
+publishing status, AI allowance, and deployment checks in
+[the open beta launch checklist](docs/deployments/2026-10-21-open-beta-checklist.md).

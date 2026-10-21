@@ -6,7 +6,6 @@ import { useState } from "react";
 import { InboxIcon, LayoutDashboardIcon, LogOutIcon, MenuIcon, PlusIcon, SettingsIcon, TableIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Wordmark } from "@/components/wordmark";
 import { logout } from "@/app/login/actions";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +22,7 @@ function Nav({ onNavigate }: { onNavigate?: () => void }) {
   const path = usePathname();
   return (
     <div className="flex h-full flex-col gap-6 bg-[#272660] p-4 text-white">
-      <Wordmark className="mx-2 mt-2 h-14 w-auto self-start text-white" />
+      <Link href="/app" onClick={onNavigate} className="mx-2 mt-2 self-start rounded-sm py-2 text-2xl font-semibold tracking-tight text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#49bce9]">JobTracker</Link>
       <nav className="flex flex-1 flex-col gap-1" aria-label="Main">
         {LINKS.map(({ href, label, icon: Icon }) => {
           const active = href === "/app" ? path === href : path.startsWith(href);
@@ -62,7 +61,7 @@ export function AppSidebar() {
         <Nav />
       </aside>
       <header className="flex items-center justify-between bg-[#272660] px-4 py-2 text-white md:hidden">
-        <Wordmark className="h-10 w-auto text-white" />
+        <Link href="/app" className="rounded-sm py-2 text-xl font-semibold tracking-tight text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#49bce9]">JobTracker</Link>
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="icon" className="text-white hover:bg-white/10 hover:text-white" aria-label="Open menu">

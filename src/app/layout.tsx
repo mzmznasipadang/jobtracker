@@ -11,7 +11,7 @@ const montserrat = Montserrat({
 
 export const metadata: Metadata = {
   title: "JobTracker · Naspad Studio",
-  icons: { icon: "/brand/mark-192.png" },
+  icons: { icon: "/brand/jobtracker.svg" },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

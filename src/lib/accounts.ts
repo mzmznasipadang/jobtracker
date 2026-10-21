@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import { chmodSync, mkdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { z } from "zod";
+import { isOpenBetaEnabled } from "./beta";
 export type Account = {
     id: number;
     email: string;
@@ -35,7 +36,7 @@ export function getRegistry(): Database.Database {
         }
         db.transaction(() => {
             const version = db.pragma("user_version", { simple: true }) as number;
-            if (version > 3)
+            if (version > 4)
                 throw new Error("Unsupported account registry version");
             if (version === 0) {
                 db.exec(`
@@ -79,6 +80,11 @@ export function getRegistry(): Database.Database {
         CREATE INDEX ai_usage_account_month ON ai_usage(account_id,month,state);
         PRAGMA user_version=3;
       `);
+            if (version < 4) db.exec(`
+              CREATE TABLE IF NOT EXISTS mobile_handoffs(code_hash TEXT PRIMARY KEY, account_id INTEGER NOT NULL REFERENCES accounts(id), challenge TEXT NOT NULL, expires_at INTEGER NOT NULL);
+              CREATE TABLE IF NOT EXISTS mobile_browser_tickets(code_hash TEXT PRIMARY KEY,payload TEXT NOT NULL,expires_at INTEGER NOT NULL);
+              PRAGMA user_version=4;
+            `);
             const owner = db.prepare("SELECT email FROM accounts WHERE role='owner'").get() as {
                 email: string;
             } | undefined;
@@ -142,16 +148,22 @@ export function claimGoogleAccount(input: {
     const email = normalizeEmail(input.email);
     const db = getRegistry();
     return db.transaction(() => {
-        const row = db.prepare("SELECT * FROM accounts WHERE email=? AND active=1").get(email) as Row | undefined;
+        const row = db.prepare("SELECT * FROM accounts WHERE email=?").get(email) as Row | undefined;
         const subject = db.prepare("SELECT id FROM accounts WHERE google_sub=?").get(input.sub) as {
             id: number;
         } | undefined;
-        if (!row || (row.google_sub !== null && row.google_sub !== input.sub) || (subject && subject.id !== row.id))
+        if (!row) {
+            if (!isOpenBetaEnabled() || subject)
+                throw new Error("Account is not approved");
+            const result = db.prepare("INSERT INTO accounts (email,google_sub,role) VALUES (?,?,'member')").run(email, input.sub);
+            return { id: Number(result.lastInsertRowid), email, role: "member" as const };
+        }
+        if (!row.active || (row.google_sub !== null && row.google_sub !== input.sub) || (subject && subject.id !== row.id))
             throw new Error("Account is not approved");
         if (row.google_sub === null)
             db.prepare("UPDATE accounts SET google_sub=? WHERE id=?").run(input.sub, row.id);
         return identity(row);
-    })();
+    }).immediate();
 }
 export function accountDbPath(account: Account): string {
     const current = account && getActiveAccount(account.id);
