@@ -13,7 +13,11 @@ function describe(e: JobEvent): string {
     case "tailor":
       return `Tailored version ${d.version}`;
     case "email":
-      return "Email received";
+      return [
+        `Email received${d.classification ? ` · ${String(d.classification).replaceAll("_", " ")}` : ""}`,
+        d.from ? `From: ${d.from}` : null,
+        d.subject ? `Subject: ${d.subject}` : null,
+      ].filter(Boolean).join("\n");
   }
 }
 

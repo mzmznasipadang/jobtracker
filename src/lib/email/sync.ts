@@ -35,6 +35,8 @@ function applyEmail(account: Account, jobId: number, e: StoredEmail): void {
 }
 export function linkEmail(account: Account, emailId: string, jobId: number): void {
     requireActiveJob(account, jobId);
+    if (getKv(account, `emailRelevance:${emailId}`) === 'not_relevant')
+        throw new Error('Mark this email Relevant before linking it to a job');
     const e = getAccountDb(account).prepare("SELECT id, original_from, subject, snippet, received_at, classification, job_id FROM emails WHERE id = ?").get(emailId) as (StoredEmail & {
         job_id: number | null;
     }) | undefined;
