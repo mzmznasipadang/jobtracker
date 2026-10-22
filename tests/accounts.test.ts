@@ -34,7 +34,7 @@ it("binds subject once and rejects changed/recycled identity claims", () => {
   expect(() => claim("owner@example.com", "other-sub")).toThrow();
   approveEmail("new@gmail.com");
   expect(() => claim("new@gmail.com", "owner-sub")).toThrow();
-  expect(claim("owner@example.com", "owner-sub").role).toBe("owner");
+  expect(claim("OWNER@example.com", "owner-sub").role).toBe("owner");
 });
 it("uses distinct server-controlled paths and rejects forged/absent accounts", () => {
   const owner = getOwnerAccount();
