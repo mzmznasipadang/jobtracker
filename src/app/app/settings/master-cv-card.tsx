@@ -109,6 +109,40 @@ export function MasterCvCard({ initial, parse }: { initial: MasterCv | null; par
                 ))}
               </fieldset>
             ))}
+            <section aria-labelledby="education-heading" className="grid gap-3">
+              <h3 id="education-heading" className="text-sm font-semibold">Education history</h3>
+              {cv.education.length === 0 && <p className="text-sm text-muted-foreground">No education added yet.</p>}
+              {cv.education.map((education, index) => (
+                <fieldset key={education.id} disabled={saving} className="grid gap-3 rounded-lg border p-4 sm:grid-cols-2">
+                  <legend className="px-1 text-sm font-semibold">Education {index + 1}</legend>
+                  {([
+                    ["school", "School / university"],
+                    ["degree", "Degree / qualification"],
+                    ["start", "Start date"],
+                    ["end", "End date (or Present)"],
+                  ] as const).map(([field, label]) => (
+                    <div key={field} className="grid gap-1.5">
+                      <Label htmlFor={`education-${education.id}-${field}`}>{label}</Label>
+                      <Input id={`education-${education.id}-${field}`} value={education[field]}
+                        onChange={(event) => setCv((current) => current && {
+                          ...current, education: current.education.map((entry) => entry.id === education.id ? { ...entry, [field]: event.target.value } : entry),
+                        })} />
+                    </div>
+                  ))}
+                  <Button type="button" variant="outline" className="w-fit" aria-label={`Remove education ${index + 1}`}
+                    onClick={() => setCv((current) => current && { ...current, education: current.education.filter((entry) => entry.id !== education.id) })}>
+                    Remove education
+                  </Button>
+                </fieldset>
+              ))}
+              <Button type="button" variant="secondary" className="w-fit" disabled={saving}
+                onClick={() => setCv((current) => current && {
+                  ...current, education: [...current.education, { id: `edu-${crypto.randomUUID()}`, school: "", degree: "", start: "", end: "" }],
+                })}>
+                Add education
+              </Button>
+              <p className="text-xs text-muted-foreground">Use Save master CV below to save your education changes.</p>
+            </section>
             <div className="grid gap-1.5">
               <Label htmlFor="skills">Skills (comma-separated)</Label>
               <Input id="skills" value={skills} onChange={(e) => setSkills(e.target.value)} />
