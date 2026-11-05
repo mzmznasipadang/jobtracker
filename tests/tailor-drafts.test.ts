@@ -2,14 +2,34 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { createAccountFixture } from './helpers/accounts';
 import { getAccountDb } from '@/lib/db';
 import { saveMasterCv } from '@/lib/cv/parse';
-import { generateDraft, saveDraft, finalizeDraft } from '@/lib/tailor/drafts';
+import { generateDraft, saveDraft, finalizeDraft, getDraft } from '@/lib/tailor/drafts';
 import { askJson } from '@/lib/ai';
 import { htmlToPdf } from '@/lib/tailor/pdf';
+import { saveSettings } from '@/lib/settings';
+import { getTailored } from '@/lib/tailor/tailor';
 vi.mock('@/lib/ai', async (orig) => ({ ...await orig<typeof import('@/lib/ai')>(), askJson: vi.fn() }));
 vi.mock('@/lib/tailor/pdf', () => ({ htmlToPdf: vi.fn(async () => Buffer.from('%PDF test')) }));
 let f: ReturnType<typeof createAccountFixture>;
 beforeEach(() => { f = createAccountFixture(); getAccountDb(f.member).prepare("INSERT INTO jobs(url,source,company,title,description) VALUES ('u','other','Acme','Role','Posting')").run(); saveMasterCv(f.member, { basics: { name: 'A', email: '', phone: '', location: '', links: [] }, summary: 'Real', experience: [], projects: [], education: [], skills: [], certifications: [], languages: [] }); vi.mocked(askJson).mockResolvedValue({ summary: 'Draft', experience: [], projects: [], skillIds: [], coverLetter: 'Letter', answers: [] }); vi.mocked(htmlToPdf).mockClear(); });
 afterEach(() => f.cleanup());
+it('saves and finalizes an existing portfolio draft without rejecting its approved links', async () => {
+    saveSettings(f.member, { profile: { portfolioUrl: 'https://portfolio.example', links: ['https://github.com/example'] } });
+    const d = await generateDraft(f.member, 1, [], null);
+    expect(d.master.basics.links).toEqual([]);
+    expect(d.cv.basics.links).toEqual(['https://github.com/example', 'https://portfolio.example']);
+    const edit = { cv: { ...d.cv, summary: 'Reviewed summary' }, coverLetter: d.coverLetter, answers: d.answers };
+    // Later settings changes must not silently change or invalidate this saved draft.
+    saveSettings(f.member, { profile: { portfolioUrl: 'https://next.example' } });
+    const saved = saveDraft(f.member, 1, d.revision, edit);
+    expect(saved.revision).toBe(2);
+    expect(await finalizeDraft(f.member, 1, saved.revision, edit, true)).toEqual({ version: 1 });
+    expect(getTailored(f.member, 1)[0].cv.basics.links).toEqual(['https://github.com/example', 'https://portfolio.example']);
+    const next = { ...edit, coverLetter: 'Updated letter' };
+    expect(await finalizeDraft(f.member, 1, saved.revision, next, true)).toEqual({ version: 2 });
+    expect(getDraft(f.member, 1)?.revision).toBe(3);
+    expect(() => saveDraft(f.member, 1, 3, { ...next, cv: { ...next.cv, basics: { ...next.cv.basics, links: ['https://unapproved.example'] } } })).toThrow(/source/);
+    expect(() => saveDraft(f.member, 1, 3, { ...next, cv: { ...next.cv, basics: { ...next.cv.basics, name: 'Fake' } } })).toThrow(/source/);
+});
 it('creates no PDF until reviewed, saves wording, rejects conflicts and finalizes idempotently', async () => {
     const d = await generateDraft(f.member, 1, [], null);
     expect(htmlToPdf).not.toHaveBeenCalled();

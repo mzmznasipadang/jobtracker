@@ -123,7 +123,9 @@ function save(account: Account, jobId: number, expectedRevision: number, value: 
         const r = read(account, jobId);
         if (!r)
             throw new Error('Generate a draft first');
-        const edit = validatedEdit(value, r.data.master), same = JSON.stringify({ cv: r.data.cv, coverLetter: r.data.coverLetter, answers: r.data.answers }) === JSON.stringify(edit);
+        // Generation may override imported links with profile settings; validate against the stored draft's approved links.
+        const master = { ...r.data.master, basics: { ...r.data.master.basics, links: r.data.cv.basics.links } };
+        const edit = validatedEdit(value, master), same = JSON.stringify({ cv: r.data.cv, coverLetter: r.data.coverLetter, answers: r.data.answers }) === JSON.stringify(edit);
         if (r.revision !== expectedRevision && !same)
             throw new Error('Draft changed. Refresh before saving.');
         if (!same)
