@@ -6,6 +6,20 @@ import { getKv, getSettings, saveSettings, setKv } from "@/lib/settings";
 beforeEach(() => resetDb());
 
 describe("settings", () => {
+  it("saves, changes and clears the portfolio URL", () => {
+    const account = getOwnerAccount();
+    expect(getSettings(account).profile.portfolioUrl).toBeNull();
+    saveSettings(account, { profile: { portfolioUrl: "https://old.example" } });
+    saveSettings(account, { profile: { portfolioUrl: "https://new.example/work" } });
+    expect(getSettings(account).profile.portfolioUrl).toBe("https://new.example/work");
+    saveSettings(account, { profile: { portfolioUrl: "" } });
+    expect(getSettings(account).profile.portfolioUrl).toBe("");
+  });
+
+  it.each(["javascript:alert(1)", "data:text/html,hello", "ftp://example.com", "not a url"])("rejects unsafe portfolio URL %s", (portfolioUrl) => {
+    expect(() => saveSettings(getOwnerAccount(), { profile: { portfolioUrl } })).toThrow();
+  });
+
   it("returns defaults on an empty DB", () => {
     const s = getSettings(getOwnerAccount());
     expect(s.pipeline.ghostDays).toBe(14);

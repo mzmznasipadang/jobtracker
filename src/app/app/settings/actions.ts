@@ -43,7 +43,7 @@ async function guarded<T extends object>(fn: (account: Account) => T | Promise<T
 const save = (patch: Parameters<typeof saveSettings>[1]) => guarded((account) => (saveSettings(account, patch), {}));
 
 export const saveProfile = async (f: FormData) =>
-  save({ profile: { name: str(f, "name"), email: str(f, "email"), phone: str(f, "phone"), links: list(f, "links") } });
+  save({ profile: { name: str(f, "name"), email: str(f, "email"), phone: str(f, "phone"), portfolioUrl: str(f, "portfolioUrl"), links: list(f, "links") } });
 
 export const savePreferences = async (f: FormData) =>
   save({

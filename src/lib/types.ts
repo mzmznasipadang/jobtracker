@@ -83,6 +83,8 @@ export const Settings = z.object({
         name: z.string().default(""),
         email: z.string().default(""),
         phone: z.string().default(""),
+        // null keeps imported CV links until the profile form is first saved; "" explicitly clears the portfolio.
+        portfolioUrl: z.union([z.literal(""), z.url({ protocol: /^https?$/ })]).nullable().default(null),
         links: z.array(z.string()).default([]),
     }).prefault({}),
     preferences: z.object({

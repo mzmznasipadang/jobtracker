@@ -27,6 +27,9 @@ export async function generateTailorContent(account: Account, jobId: number, ext
     if (!cv)
         throw new Error("Upload your master CV in Settings first");
     const settings = getSettings(account);
+    if (settings.profile.portfolioUrl !== null || settings.profile.links.length) {
+        cv.basics.links = [...new Set([...settings.profile.links, ...(settings.profile.portfolioUrl ? [settings.profile.portfolioUrl] : [])])];
+    }
     const lang = settings.pipeline.cvLanguage === "auto" ? job.language : settings.pipeline.cvLanguage;
     const out = await askJson(account, {
         operation: "tailor", schema: TailorOutput, system: composeTailorInstructions(setup), ai: setup.ai, effort: "high", maxTokens: 16000,

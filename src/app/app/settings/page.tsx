@@ -62,7 +62,12 @@ export default async function SettingsPage({ searchParams }: PageProps<"/app/set
         <Field label="Name" name="name" defaultValue={s.profile.name}/>
         <Field label="Email" name="email" type="email" defaultValue={s.profile.email}/>
         <Field label="Phone" name="phone" defaultValue={s.profile.phone}/>
-        <Area label="Links" name="links" hint="One per line: LinkedIn, GitHub, portfolio." defaultValue={lines(s.profile.links)}/>
+        <div className="grid gap-1.5 sm:col-span-2">
+          <Label htmlFor="portfolioUrl">Portfolio URL</Label>
+          <Input id="portfolioUrl" name="portfolioUrl" type="url" placeholder="https://your-portfolio.com" defaultValue={s.profile.portfolioUrl ?? ""} aria-describedby="portfolio-hint"/>
+          <p id="portfolio-hint" className="text-xs text-muted-foreground">Used on new CVs. The owner&apos;s link also appears on the public results page when enabled. Leave blank to hide it.</p>
+        </div>
+        <Area label="Other CV links" name="links" hint="One per line: LinkedIn, GitHub. Remove any old portfolio URL here before saving." defaultValue={lines(s.profile.links.length || s.profile.portfolioUrl !== null ? s.profile.links : cv?.basics.links ?? [])}/>
       </SectionForm>
 
       {getKv<string>(account, "aiPolicyError") && <p role="status" className="text-sm text-warning">Last Gmail classification paused: {getKv<string>(account, "aiPolicyError")}</p>}

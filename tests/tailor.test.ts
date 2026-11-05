@@ -30,6 +30,30 @@ beforeEach(() => {
 });
 
 describe("tailorJob", () => {
+  it("keeps imported links until customized and allows clearing all links", async () => {
+    const account = getOwnerAccount();
+    saveMasterCv(account, { ...cv, basics: { ...cv.basics, links: ["https://old.example"] } });
+    const id = seedJob("en");
+    await tailorJob(account, id);
+    expect(getTailored(account, id)[0].cv.basics.links).toEqual(["https://old.example"]);
+    saveSettings(account, { profile: { portfolioUrl: "", links: [] } });
+    await tailorJob(account, id);
+    expect(getTailored(account, id)[0].cv.basics.links).toEqual([]);
+  });
+
+  it("uses the current portfolio and other profile links in new CVs", async () => {
+    const account = getOwnerAccount();
+    saveMasterCv(account, { ...cv, basics: { ...cv.basics, links: ["https://old.example"] } });
+    saveSettings(account, { profile: { portfolioUrl: "https://new.example", links: ["https://github.com/example", "https://new.example"] } });
+    const id = seedJob("en");
+    await tailorJob(account, id);
+    expect(getTailored(account, id)[0].cv.basics.links).toEqual(["https://github.com/example", "https://new.example"]);
+    saveSettings(account, { profile: { portfolioUrl: "https://latest.example", links: ["https://github.com/example"] } });
+    await tailorJob(account, id);
+    expect(getTailored(account, id)[0].cv.basics.links).toEqual(["https://github.com/example", "https://latest.example"]);
+    expect(getTailored(account, id)[1].cv.basics.links).toEqual(["https://github.com/example", "https://new.example"]);
+  });
+
   it("stores guarded versions with incrementing numbers, a PDF and a tailor event", async () => {
     const id = seedJob("id");
     expect(await tailorJob(getOwnerAccount(), id, ["Notice period?"])).toEqual({ version: 1 });

@@ -19,7 +19,7 @@ function Tile({ label, value, note }: { label: string; value: React.ReactNode; n
 
 export default function PublicResults() {
   const account = getOwnerAccount();
-  const { publicPageEnabled, pipeline } = getSettings(account);
+  const { publicPageEnabled, pipeline, profile } = getSettings(account);
   const stats = publicPageEnabled ? computeMetrics(account) : null;
   const days = pipeline.ghostDays;
   const rateTile = (label: string, key: keyof Rates) => (
@@ -33,6 +33,9 @@ export default function PublicResults() {
           <Wordmark className="h-14 w-auto self-start text-white" />
           <div className="sm:text-right">
             <h1 className="text-2xl font-semibold">Job search results</h1>
+            {publicPageEnabled && profile.portfolioUrl && (
+              <a href={profile.portfolioUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block rounded-sm text-sm underline underline-offset-4 hover:text-white/80 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">View portfolio<span className="sr-only"> (opens in a new tab)</span></a>
+            )}
             {stats && (
               <p className="text-sm text-white/80">
                 Last updated {new Date(stats.updatedAt).toLocaleString("en-GB", { timeZone: "Asia/Jakarta", dateStyle: "medium", timeStyle: "short" })} WIB
